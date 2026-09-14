@@ -6,6 +6,7 @@ dispatch happens in adapters/.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 
 from agent_gateway.proxy.config import ProviderConfig, ProvidersConfig
@@ -28,3 +29,15 @@ class ProviderRegistry:
             f"Provider {provider_name!r} (resolved for model {model!r}) "
             "has no matching entry in providers.entries"
         )
+
+
+def resolve_credential(provider: ProviderConfig, request_headers: dict[str, str]) -> str | None:
+    """Client `Authorization: Bearer <key>` header wins if present;
+    otherwise falls back to the server-side env var configured for this
+    provider. Returns None if neither is available."""
+    client_key = request_headers.get("authorization", "").removeprefix("Bearer ").strip()
+    if client_key:
+        return client_key
+    if provider.api_key_env:
+        return os.environ.get(provider.api_key_env)
+    return None
