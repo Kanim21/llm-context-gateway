@@ -39,12 +39,18 @@ def assemble_prompt(
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Protocol
+import json as _json
+
+import httpx
 
 from agent_gateway.core.blackboard import Blackboard
 from agent_gateway.orchestrator.schema import Playbook
 from agent_gateway.orchestrator.store import new_id
 from agent_gateway.storage.sqlite_store import SqliteStore
 from agent_gateway.orchestrator.events import EventBus
+from agent_gateway.adapters.gemini_adapter import GeminiAdapter
+from agent_gateway.adapters.openai_adapter import OpenAIAdapter
+from agent_gateway.core.provider_routing import ProviderRegistry, resolve_credential
 
 
 def _now() -> str:
@@ -183,3 +189,50 @@ class PlaybookRunner:
             if record is not None and record["status"] == "running":
                 self.store.reset_step_to_pending(run["id"], index)
             await self._advance(playbook, run["id"])
+
+
+async def _consume_openai_sse(chunks, on_token) -> str:
+    buffer = b""
+    full_text = ""
+    async for chunk in chunks:
+        buffer += chunk
+        while b"\n\n" in buffer:
+            frame, buffer = buffer.split(b"\n\n", 1)
+            for line in frame.split(b"\n"):
+                if not line.startswith(b"data: "):
+                    continue
+                payload = line[len(b"data: "):]
+                if payload.strip() == b"[DONE]":
+                    return full_text
+                data = _json.loads(payload)
+                delta = data.get("choices", [{}])[0].get("delta", {}).get("content")
+                if delta:
+                    full_text += delta
+                    await on_token(delta)
+    return full_text
+
+
+@dataclass
+class GatewayCompletionFn:
+    provider_registry: ProviderRegistry
+    http_client: httpx.AsyncClient
+
+    async def __call__(self, *, model: str, prompt: str, on_token) -> str:
+        provider = self.provider_registry.resolve(model)
+        api_key = resolve_credential(provider, {})
+        body = {"model": model, "messages": [{"role": "user", "content": prompt}], "stream": True}
+
+        if provider.wire_shape == "gemini":
+            gemini_kwargs = {"base_url": provider.base_url, "api_key": api_key}
+            if provider.api_key_header:
+                gemini_kwargs["api_key_header"] = provider.api_key_header
+            adapter = GeminiAdapter(**gemini_kwargs)
+            chunks = await adapter.stream_generate_content(body, client=self.http_client)
+        else:
+            openai_kwargs = {"base_url": provider.base_url, "api_key": api_key}
+            if provider.api_key_header:
+                openai_kwargs["api_key_header"] = provider.api_key_header
+            adapter = OpenAIAdapter(**openai_kwargs)
+            chunks = await adapter.stream_chat_completions(body, client=self.http_client)
+
+        return await _consume_openai_sse(chunks, on_token)
