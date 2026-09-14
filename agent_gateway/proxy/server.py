@@ -31,6 +31,12 @@ from agent_gateway.core.cache_boundary import (
 )
 from agent_gateway.core.guardrails import GuardrailViolation
 from agent_gateway.core.provider_routing import ProviderRegistry, resolve_credential
+from agent_gateway.orchestrator.engine import GatewayCompletionFn, PlaybookRunner
+from agent_gateway.orchestrator.events import EventBus
+from agent_gateway.orchestrator.routes import build_router
+from agent_gateway.orchestrator.schema import Playbook
+from agent_gateway.orchestrator.seed import seed_templates
+from agent_gateway.orchestrator.store import OrchestratorStore
 from agent_gateway.proxy.config import GatewayConfig
 from agent_gateway.proxy.metrics import MetricsAccumulator
 from agent_gateway.storage.sqlite_store import SqliteStore
@@ -46,6 +52,16 @@ class GatewayState:
         self.provider_registry = ProviderRegistry(config.providers)
         self.anthropic_adapter = AnthropicAdapter(base_url=config.upstream.anthropic_base_url)
         self.http_client = httpx.AsyncClient(timeout=config.upstream.request_timeout_s)
+        self.orchestrator_store = OrchestratorStore(self.store)
+        self.event_bus = EventBus()
+        completion_fn = GatewayCompletionFn(
+            provider_registry=self.provider_registry, http_client=self.http_client,
+        )
+        self.playbook_runner = PlaybookRunner(
+            store=self.orchestrator_store, events=self.event_bus,
+            tier_models=config.playbook_tiers, blackboard_store=self.store,
+            complete=completion_fn,
+        )
 
     async def aclose(self) -> None:
         await self.http_client.aclose()
@@ -58,12 +74,19 @@ def create_app(config: GatewayConfig | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.gateway = GatewayState(config)
+        seed_templates(app.state.gateway.orchestrator_store)
+        playbooks_by_id = {
+            row["id"]: Playbook.model_validate(row["definition_json"])
+            for row in app.state.gateway.orchestrator_store.list_playbooks()
+        }
+        await app.state.gateway.playbook_runner.recover_interrupted_runs(playbooks_by_id)
         try:
             yield
         finally:
             await app.state.gateway.aclose()
 
     app = FastAPI(title="Agent Gateway", version="2.0.0", lifespan=lifespan)
+    app.include_router(build_router())
 
     @app.get("/healthz")
     async def healthz() -> dict[str, str]:
