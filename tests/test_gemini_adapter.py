@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from agent_gateway.adapters.gemini_adapter import translate_request
+import pytest
+
+from agent_gateway.adapters.gemini_adapter import _sanitize_json_schema, translate_request
 
 
 class TestTranslateRequestTextTurns:
@@ -41,3 +43,118 @@ class TestTranslateRequestTextTurns:
         ]}
         result = translate_request(body)
         assert result["systemInstruction"] == {"parts": [{"text": "Rule 1.\nRule 2."}]}
+
+
+class TestTranslateRequestToolCalls:
+    def test_assistant_tool_call_turn_becomes_function_call_part(self):
+        body = {"model": "gemini-1.5-pro", "messages": [
+            {"role": "user", "content": "What's the weather in Paris?"},
+            {"role": "assistant", "content": None, "tool_calls": [
+                {"id": "call_1", "type": "function",
+                 "function": {"name": "get_weather", "arguments": '{"city": "Paris"}'}},
+            ]},
+        ]}
+        result = translate_request(body)
+        assert result["contents"][1] == {
+            "role": "model",
+            "parts": [{"functionCall": {"name": "get_weather", "args": {"city": "Paris"}}}],
+        }
+
+    def test_tool_result_turn_recovers_name_from_same_request_history(self):
+        body = {"model": "gemini-1.5-pro", "messages": [
+            {"role": "user", "content": "What's the weather in Paris?"},
+            {"role": "assistant", "content": None, "tool_calls": [
+                {"id": "call_1", "type": "function",
+                 "function": {"name": "get_weather", "arguments": '{"city": "Paris"}'}},
+            ]},
+            {"role": "tool", "tool_call_id": "call_1", "content": '{"temp_c": 18}'},
+        ]}
+        result = translate_request(body)
+        assert result["contents"][2] == {
+            "role": "user",
+            "parts": [{"functionResponse": {"name": "get_weather", "response": {"temp_c": 18}}}],
+        }
+
+    def test_tool_result_with_bare_string_content_is_wrapped_in_result_object(self):
+        body = {"model": "gemini-1.5-pro", "messages": [
+            {"role": "assistant", "content": None, "tool_calls": [
+                {"id": "call_1", "type": "function", "function": {"name": "ping", "arguments": "{}"}},
+            ]},
+            {"role": "tool", "tool_call_id": "call_1", "content": "pong"},
+        ]}
+        result = translate_request(body)
+        response = result["contents"][1]["parts"][0]["functionResponse"]["response"]
+        assert response == {"result": "pong"}
+
+    def test_tool_result_with_json_array_content_is_wrapped_in_result_object(self):
+        body = {"model": "gemini-1.5-pro", "messages": [
+            {"role": "assistant", "content": None, "tool_calls": [
+                {"id": "call_1", "type": "function", "function": {"name": "list_items", "arguments": "{}"}},
+            ]},
+            {"role": "tool", "tool_call_id": "call_1", "content": "[1, 2, 3]"},
+        ]}
+        result = translate_request(body)
+        response = result["contents"][1]["parts"][0]["functionResponse"]["response"]
+        assert response == {"result": [1, 2, 3]}
+
+    def test_tool_result_with_json_object_content_passes_through_unwrapped(self):
+        body = {"model": "gemini-1.5-pro", "messages": [
+            {"role": "assistant", "content": None, "tool_calls": [
+                {"id": "call_1", "type": "function", "function": {"name": "lookup", "arguments": "{}"}},
+            ]},
+            {"role": "tool", "tool_call_id": "call_1", "content": '{"status": "ok"}'},
+        ]}
+        result = translate_request(body)
+        response = result["contents"][1]["parts"][0]["functionResponse"]["response"]
+        assert response == {"status": "ok"}
+
+    def test_tools_map_to_function_declarations_with_sanitized_schema(self):
+        body = {"model": "gemini-1.5-pro", "messages": [{"role": "user", "content": "hi"}],
+                "tools": [{"type": "function", "function": {
+                    "name": "get_weather", "description": "Get weather",
+                    "parameters": {"type": "object", "properties": {"city": {"type": "string"}},
+                                   "additionalProperties": False, "$schema": "http://json-schema.org/draft-07/schema#"},
+                }}]}
+        result = translate_request(body)
+        decl = result["tools"][0]["functionDeclarations"][0]
+        assert decl["name"] == "get_weather"
+        assert "additionalProperties" not in decl["parameters"]
+        assert "$schema" not in decl["parameters"]
+
+    @pytest.mark.parametrize("tool_choice,expected", [
+        ("none", {"functionCallingConfig": {"mode": "NONE"}}),
+        ("auto", {"functionCallingConfig": {"mode": "AUTO"}}),
+        ("required", {"functionCallingConfig": {"mode": "ANY"}}),
+        ({"type": "function", "function": {"name": "get_weather"}},
+         {"functionCallingConfig": {"mode": "ANY", "allowedFunctionNames": ["get_weather"]}}),
+    ])
+    def test_tool_choice_mapping(self, tool_choice, expected):
+        body = {"model": "gemini-1.5-pro", "messages": [{"role": "user", "content": "hi"}],
+                "tool_choice": tool_choice}
+        result = translate_request(body)
+        assert result["toolConfig"] == expected
+
+
+class TestSanitizeJsonSchema:
+    def test_strips_additional_properties_and_schema_key_recursively(self):
+        schema = {
+            "type": "object",
+            "additionalProperties": False,
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "properties": {
+                "nested": {"type": "object", "additionalProperties": False, "properties": {}},
+            },
+        }
+        result = _sanitize_json_schema(schema)
+        assert "additionalProperties" not in result
+        assert "$schema" not in result
+        assert "additionalProperties" not in result["properties"]["nested"]
+
+    def test_strips_default_only_at_root(self):
+        schema = {
+            "type": "object", "default": {},
+            "properties": {"count": {"type": "integer", "default": 0}},
+        }
+        result = _sanitize_json_schema(schema)
+        assert "default" not in result
+        assert result["properties"]["count"]["default"] == 0
