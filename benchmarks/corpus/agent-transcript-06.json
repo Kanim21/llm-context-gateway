@@ -1,0 +1,25 @@
+{
+  "id": "agent-transcript-06",
+  "category": "agent_transcript",
+  "text": "[Step 1] Tool: read_file(path='CHANGELOG.md')\nOutput: 340 lines, most recent entry dated 2024-09-30, version 4.2.0. Does not mention the security patch merged yesterday.\n[Step 2] Agent: I need to add an entry for the unreleased security fix before cutting the release.\n[Step 3] Tool: append_file(path='CHANGELOG.md', content='## Unreleased\\n- Fix: session tokens no longer leak in debug logs.')\nOutput: write succeeded.",
+  "facts": {
+    "numbers": [
+      "-09",
+      "-30",
+      "0",
+      "1",
+      "2",
+      "2024",
+      "3",
+      "340",
+      "4.2"
+    ],
+    "dates": [
+      "2024-09-30"
+    ],
+    "negations": [
+      "no longer",
+      "not"
+    ]
+  }
+}

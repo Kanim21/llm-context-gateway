@@ -1,0 +1,16 @@
+{
+  "id": "prose-12",
+  "category": "prose",
+  "text": "Vaccines do not contain a live, dangerous dose of the pathogen they protect against in the vast majority of cases; most modern vaccines use inactivated viruses, weakened live viruses, or a small protein fragment (such as an mRNA-encoded spike protein) to train the immune system. Smallpox, once responsible for an estimated 300 million deaths in the 20th century alone, was declared eradicated in 1980 following a global vaccination campaign.",
+  "facts": {
+    "numbers": [
+      "1980",
+      "20",
+      "300"
+    ],
+    "dates": [],
+    "negations": [
+      "not"
+    ]
+  }
+}

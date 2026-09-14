@@ -1,0 +1,15 @@
+{
+  "id": "code-02-javascript",
+  "category": "code",
+  "text": "async function fetchWithRetry(url, maxRetries = 3) {\n  let lastError = null;\n  for (let attempt = 0; attempt < maxRetries; attempt++) {\n    try {\n      const response = await fetch(url);\n      if (!response.ok) throw new Error(`HTTP ${response.status}`);\n      return await response.json();\n    } catch (err) {\n      lastError = err;\n      await new Promise((r) => setTimeout(r, 200 * (attempt + 1)));\n    }\n  }\n  throw lastError;\n}\n",
+  "facts": {
+    "numbers": [
+      "0",
+      "1",
+      "200",
+      "3"
+    ],
+    "dates": [],
+    "negations": []
+  }
+}

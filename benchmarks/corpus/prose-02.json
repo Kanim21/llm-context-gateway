@@ -1,0 +1,18 @@
+{
+  "id": "prose-02",
+  "category": "prose",
+  "text": "Photosynthesis converts light energy into chemical energy stored in glucose. The overall reaction can be summarized as 6 CO2 + 6 H2O + light energy -> C6H12O6 + 6 O2. This process is not limited to plants; algae and some bacteria also photosynthesize. The light-dependent reactions occur in the thylakoid membrane, while the light-independent reactions (the Calvin cycle) occur in the stroma. Roughly 1-2% of incident sunlight energy is ultimately converted into chemical energy under typical field conditions.",
+  "facts": {
+    "numbers": [
+      "-2%",
+      "1",
+      "12",
+      "2",
+      "6"
+    ],
+    "dates": [],
+    "negations": [
+      "not"
+    ]
+  }
+}

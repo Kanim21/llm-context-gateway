@@ -1,0 +1,19 @@
+{
+  "id": "agent-transcript-07",
+  "category": "agent_transcript",
+  "text": "[Step 1] Tool: run_shell(cmd='pip install -r requirements.txt')\nOutput: Successfully installed 23 packages. No conflicts detected.\n[Step 2] Tool: run_shell(cmd='python -m pytest')\nOutput: ImportError: cannot import name 'validate' from 'schema'. 0 tests collected.\n[Step 3] Agent: This is not a test failure, it's an import error -- likely a version mismatch introduced by the install in Step 1.",
+  "facts": {
+    "numbers": [
+      "0",
+      "1",
+      "2",
+      "23",
+      "3"
+    ],
+    "dates": [],
+    "negations": [
+      "cannot",
+      "not"
+    ]
+  }
+}

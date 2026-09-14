@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run test suite
+        run: pytest tests/ -v
+
+      - name: Verify storage codec round-trip on full corpus
+        run: |
+          python -c "
+          import json, sys
+          from pathlib import Path
+          sys.path.insert(0, '.')
+          from agent_gateway.storage import zclaw
+
+          corpus = list(Path('benchmarks/corpus').glob('*.json'))
+          assert len(corpus) == 55, f'expected 55 corpus payloads, found {len(corpus)}'
+          failures = []
+          for path in corpus:
+              item = json.loads(path.read_text())
+              data = item['text'].encode('utf-8')
+              result = zclaw.verify_round_trip(data)
+              if not result.ok:
+                  failures.append((item['id'], result.detail))
+          if failures:
+              for fid, detail in failures:
+                  print(f'ROUND-TRIP FAILURE: {fid}: {detail}')
+              sys.exit(1)
+          print(f'Round-trip verified byte-identical on {len(corpus)}/{len(corpus)} corpus payloads.')
+          "

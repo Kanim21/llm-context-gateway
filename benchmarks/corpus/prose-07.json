@@ -1,0 +1,18 @@
+{
+  "id": "prose-07",
+  "category": "prose",
+  "text": "Caffeine is the most widely consumed psychoactive substance in the world, but it is not classified as a controlled substance in most countries. An average cup of coffee contains between 80 and 100 milligrams of caffeine, while a shot of espresso contains roughly 63 milligrams. The half-life of caffeine in an adult human is typically 3 to 5 hours, though this can vary substantially with genetics.",
+  "facts": {
+    "numbers": [
+      "100",
+      "3",
+      "5",
+      "63",
+      "80"
+    ],
+    "dates": [],
+    "negations": [
+      "not"
+    ]
+  }
+}

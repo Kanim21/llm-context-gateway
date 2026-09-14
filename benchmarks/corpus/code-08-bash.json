@@ -1,0 +1,12 @@
+{
+  "id": "code-08-bash",
+  "category": "code",
+  "text": "#!/usr/bin/env bash\nset -euo pipefail\n\nBACKUP_DIR=\"/var/backups/db\"\nTIMESTAMP=\"$(date +%Y%m%d_%H%M%S)\"\nRETENTION_DAYS=7\n\npg_dump mydb | gzip > \"${BACKUP_DIR}/mydb_${TIMESTAMP}.sql.gz\"\nfind \"${BACKUP_DIR}\" -name '*.sql.gz' -mtime +\"${RETENTION_DAYS}\" -delete\necho \"Backup complete: ${TIMESTAMP}\"\n",
+  "facts": {
+    "numbers": [
+      "7"
+    ],
+    "dates": [],
+    "negations": []
+  }
+}

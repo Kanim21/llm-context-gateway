@@ -1,0 +1,12 @@
+{
+  "id": "adversarial-negation-03",
+  "category": "adversarial_negation",
+  "text": "The contract states the vendor shall not be liable for indirect damages, but this does not mean the vendor bears no liability at all for direct damages, which remain uncapped.",
+  "facts": {
+    "numbers": [],
+    "dates": [],
+    "negations": [
+      "not"
+    ]
+  }
+}

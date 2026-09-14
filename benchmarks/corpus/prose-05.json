@@ -1,0 +1,21 @@
+{
+  "id": "prose-05",
+  "category": "prose",
+  "text": "The Great Barrier Reef stretches approximately 2,300 kilometers off the coast of Queensland, Australia, and is composed of over 2,900 individual reefs. It is not a single organism but a vast ecosystem hosting roughly 1,500 species of fish. Between 2016 and 2020, the reef experienced three mass coral bleaching events, and studies suggest it has lost more than half of its coral cover since 1995.",
+  "facts": {
+    "numbers": [
+      "1",
+      "1995",
+      "2",
+      "2016",
+      "2020",
+      "300",
+      "500",
+      "900"
+    ],
+    "dates": [],
+    "negations": [
+      "not"
+    ]
+  }
+}

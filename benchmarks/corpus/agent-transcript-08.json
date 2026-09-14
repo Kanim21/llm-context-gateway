@@ -1,0 +1,25 @@
+{
+  "id": "agent-transcript-08",
+  "category": "agent_transcript",
+  "text": "[Step 1] Tool: fetch_url(url='https://status.example.com/api/incidents')\nOutput: 2 open incidents: INC-4471 (database latency, opened 2024-07-11 09:14 UTC, not yet resolved), INC-4472 (minor, resolved).\n[Step 2] Agent: INC-4471 has been open for over 6 hours; escalating is warranted since it does not show signs of auto-resolving.",
+  "facts": {
+    "numbers": [
+      "-07",
+      "-11",
+      "-4471",
+      "-4472",
+      "09",
+      "1",
+      "14",
+      "2",
+      "2024",
+      "6"
+    ],
+    "dates": [
+      "2024-07-11"
+    ],
+    "negations": [
+      "not"
+    ]
+  }
+}

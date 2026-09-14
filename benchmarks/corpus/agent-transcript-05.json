@@ -1,0 +1,27 @@
+{
+  "id": "agent-transcript-05",
+  "category": "agent_transcript",
+  "text": "[Step 1] Tool: deploy(env='staging')\nOutput: Deployment succeeded in 43 seconds. Version: v2.7.1-rc3. Health check: 200 OK.\n[Step 2] Tool: run_smoke_tests(env='staging')\nOutput: 18/18 passed.\n[Step 3] Agent: Staging looks healthy; I will not promote to production yet since the canary window is not complete until 2024-10-05 14:00 UTC.",
+  "facts": {
+    "numbers": [
+      "-05",
+      "-10",
+      "00",
+      "1",
+      "14",
+      "18",
+      "2",
+      "2.7",
+      "200",
+      "2024",
+      "3",
+      "43"
+    ],
+    "dates": [
+      "2024-10-05"
+    ],
+    "negations": [
+      "not"
+    ]
+  }
+}

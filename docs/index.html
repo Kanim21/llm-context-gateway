@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Agent Gateway — Benchmark Visualizer</title>
+<meta name="description" content="Interactive view of the measured Agent Gateway benchmark run: round-trip proof, faithfulness matrix, latency, cost model, and growth curve." />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="wrap">
+  <header class="viz">
+    <h1>Benchmark visualizer</h1>
+    <a href="../index.html">&larr; Agent Gateway</a>
+  </header>
+
+  <div id="status">Loading raw_results.json&hellip;</div>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab-btn" role="tab" data-panel="roundtrip" aria-selected="true">Round-trip</button>
+    <button class="tab-btn" role="tab" data-panel="faithfulness" aria-selected="false">Faithfulness</button>
+    <button class="tab-btn" role="tab" data-panel="latency" aria-selected="false">Latency</button>
+    <button class="tab-btn" role="tab" data-panel="cost" aria-selected="false">Cost model</button>
+    <button class="tab-btn" role="tab" data-panel="growth" aria-selected="false">Growth curve</button>
+  </nav>
+
+  <section id="panel-roundtrip" class="panel active">
+    <div class="stat-row" id="roundtrip-stats"></div>
+    <div class="control-row">
+      <label for="rt-filter">Filter:</label>
+      <select id="rt-filter">
+        <option value="all">All payloads</option>
+        <option value="fail">Failures only</option>
+      </select>
+    </div>
+    <div class="table-scroll">
+      <table id="rt-table">
+        <thead><tr><th>ID</th><th class="num">Original bytes</th><th class="num">Encoded bytes</th><th class="num">Delta</th><th>OK</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="note">Round-trip is measured through the <code>.zclaw</code> storage codec only — the model never sees encoded bytes. Storage reduction is a secondary, non-blended metric and is not conflated with token or cost reduction.</p>
+  </section>
+
+  <section id="panel-faithfulness" class="panel">
+    <div class="control-row">
+      <label for="faith-pass">Pass:</label>
+      <select id="faith-pass"></select>
+    </div>
+    <div class="table-scroll">
+      <table id="faith-table">
+        <thead><tr><th>Aggression</th><th class="num">Numbers retained</th><th class="num">Dates retained</th><th class="num">Negations retained</th><th class="num">Task completion retained</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="note">All lossy passes default to <strong>off</strong>. These figures exist to make the cost of turning one on explicit, including cases (pruning at MEDIUM/HIGH) where task-completion retention drops to 0%.</p>
+  </section>
+
+  <section id="panel-latency" class="panel">
+    <div class="stat-row" id="latency-stats"></div>
+    <div class="chart-box">
+      <h3>Warm vs cold percentiles (ms)</h3>
+      <canvas id="latency-chart" width="900" height="260"></canvas>
+      <div class="legend">
+        <span><span class="swatch" style="background:#5eead4"></span>Warm</span>
+        <span><span class="swatch" style="background:#f87171"></span>Cold</span>
+      </div>
+    </div>
+    <p class="note" id="latency-note"></p>
+  </section>
+
+  <section id="panel-cost" class="panel">
+    <div class="control-row">
+      <label for="cost-provider">Provider:</label>
+      <select id="cost-provider">
+        <option value="openai">OpenAI</option>
+        <option value="anthropic">Anthropic</option>
+      </select>
+    </div>
+    <div class="chart-box">
+      <h3>Projected session cost by strategy (illustrative pricing)</h3>
+      <canvas id="cost-chart" width="900" height="260"></canvas>
+    </div>
+    <div class="table-scroll">
+      <table id="cost-table">
+        <thead><tr><th>Strategy</th><th class="num">Projected cost (USD)</th><th class="num">vs naive loop</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="note" id="cost-note"></p>
+  </section>
+
+  <section id="panel-growth" class="panel">
+    <div class="control-row">
+      <label for="growth-run">Run:</label>
+      <select id="growth-run"></select>
+    </div>
+    <div class="stat-row" id="growth-stats"></div>
+    <div class="chart-box">
+      <h3>Context tokens per turn: naive vs gateway</h3>
+      <canvas id="growth-chart" width="900" height="280"></canvas>
+      <div class="legend">
+        <span><span class="swatch" style="background:#f87171"></span>Naive loop</span>
+        <span><span class="swatch" style="background:#5eead4"></span>Agent Gateway</span>
+      </div>
+    </div>
+    <p class="note">Offload hit rate = fraction of masked observations never re-hydrated for the rest of the run. Averaged across all runs it measured <strong id="growth-avg-hitrate">--</strong>.</p>
+  </section>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

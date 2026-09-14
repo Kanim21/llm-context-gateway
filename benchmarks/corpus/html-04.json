@@ -1,0 +1,18 @@
+{
+  "id": "html-04",
+  "category": "html",
+  "text": "<section id=\"pricing\">\n  <h3>Pricing Plans</h3>\n  <div class=\"plan\">\n    <h4>Starter</h4>\n    <p class=\"price\">$0/mo</p>\n    <p>Includes 3 projects. Does not include priority support.</p>\n  </div>\n  <div class=\"plan\">\n    <h4>Pro</h4>\n    <p class=\"price\">$29/mo</p>\n    <p>Includes 50 projects and priority support.</p>\n  </div>\n</section>",
+  "facts": {
+    "numbers": [
+      "0",
+      "29",
+      "3",
+      "4",
+      "50"
+    ],
+    "dates": [],
+    "negations": [
+      "not"
+    ]
+  }
+}

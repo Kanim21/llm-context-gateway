@@ -1,0 +1,24 @@
+{
+  "id": "prose-03",
+  "category": "prose",
+  "text": "The Berlin Wall fell on November 9, 1989, after 28 years of dividing East and West Berlin. It was not a single wall but a fortified barrier system nearly 155 kilometers long, including 302 watchtowers. At least 140 people are known to have died attempting to cross it. Reunification of Germany followed less than a year later, on October 3, 1990 -- a date that is now celebrated annually as German Unity Day.",
+  "facts": {
+    "numbers": [
+      "140",
+      "155",
+      "1989",
+      "1990",
+      "28",
+      "3",
+      "302",
+      "9"
+    ],
+    "dates": [
+      "November 9, 1989",
+      "October 3, 1990"
+    ],
+    "negations": [
+      "not"
+    ]
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "id": "adversarial-negation-06",
+  "category": "adversarial_negation",
+  "text": "It would be incorrect to say the feature was never requested -- it was requested twice, but neither request was prioritized, so it was not built until this quarter.",
+  "facts": {
+    "numbers": [],
+    "dates": [],
+    "negations": [
+      "neither",
+      "never",
+      "not"
+    ]
+  }
+}

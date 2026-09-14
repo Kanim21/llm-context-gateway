@@ -1,0 +1,24 @@
+{
+  "id": "prose-11",
+  "category": "prose",
+  "text": "The Titanic sank on April 15, 1912, after striking an iceberg approximately 375 miles south of Newfoundland. Of the estimated 2,224 people aboard, more than 1,500 did not survive. The ship was not carrying enough lifeboats for even half its passengers and crew -- only 20 lifeboats were aboard, with a capacity of 1,178 people, though several launched only partially filled.",
+  "facts": {
+    "numbers": [
+      "1",
+      "15",
+      "178",
+      "1912",
+      "2",
+      "20",
+      "224",
+      "375",
+      "500"
+    ],
+    "dates": [
+      "April 15, 1912"
+    ],
+    "negations": [
+      "not"
+    ]
+  }
+}

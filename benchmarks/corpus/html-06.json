@@ -1,0 +1,24 @@
+{
+  "id": "html-06",
+  "category": "html",
+  "text": "<nav>\n  <ul>\n    <li><a href=\"/\">Home</a></li>\n    <li><a href=\"/docs\">Docs</a></li>\n    <li><a href=\"/pricing\">Pricing</a></li>\n  </ul>\n</nav>\n<main>\n  <h1>Welcome</h1>\n  <p>Our uptime over the last 90 days was 99.982%, not counting two scheduled\n     maintenance windows on 2024-03-12 and 2024-06-04.</p>\n</main>",
+  "facts": {
+    "numbers": [
+      "-03",
+      "-04",
+      "-06",
+      "-12",
+      "1",
+      "2024",
+      "90",
+      "99.982%"
+    ],
+    "dates": [
+      "2024-03-12",
+      "2024-06-04"
+    ],
+    "negations": [
+      "not"
+    ]
+  }
+}

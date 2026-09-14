@@ -1,0 +1,17 @@
+{
+  "id": "code-01-python",
+  "category": "code",
+  "text": "def binary_search(arr, target):\n    lo, hi = 0, len(arr) - 1\n    while lo <= hi:\n        mid = (lo + hi) // 2\n        if arr[mid] == target:\n            return mid\n        elif arr[mid] < target:\n            lo = mid + 1\n        else:\n            hi = mid - 1\n    return -1  # not found\n",
+  "facts": {
+    "numbers": [
+      "-1",
+      "0",
+      "1",
+      "2"
+    ],
+    "dates": [],
+    "negations": [
+      "not"
+    ]
+  }
+}

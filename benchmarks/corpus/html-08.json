@@ -1,0 +1,15 @@
+{
+  "id": "html-08",
+  "category": "html",
+  "text": "<table>\n  <caption>Server Regions</caption>\n  <thead><tr><th>Region</th><th>Latency (ms)</th><th>Available</th></tr></thead>\n  <tbody>\n    <tr><td>us-east-1</td><td>12</td><td>Yes</td></tr>\n    <tr><td>eu-west-1</td><td>34</td><td>Yes</td></tr>\n    <tr><td>ap-south-1</td><td>89</td><td>No</td></tr>\n  </tbody>\n</table>",
+  "facts": {
+    "numbers": [
+      "-1",
+      "12",
+      "34",
+      "89"
+    ],
+    "dates": [],
+    "negations": []
+  }
+}

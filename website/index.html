@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Agent Gateway — local-first context management for LLM agent loops</title>
+<meta name="description" content="A self-hosted proxy that keeps long-running agent loops from drowning in their own context, with byte-identical storage, unblended metrics, and lossy passes off by default." />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<header class="site">
+  <div class="wrap">
+    <div class="brand"><span class="dot"></span> Agent Gateway</div>
+    <nav class="site-nav">
+      <a href="#rules">Non-negotiables</a>
+      <a href="#modules">Modules</a>
+      <a href="#benchmarks">Benchmarks</a>
+      <a href="#honesty">Honesty notes</a>
+      <a href="benchmarks/index.html">Benchmark visualizer</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <h1>Context management for long-running agent loops, self-hosted and inspectable.</h1>
+    <p class="lede">
+      Agent Gateway sits between your agent and the OpenAI / Anthropic APIs as a local proxy.
+      It masks stale tool output, compacts history at a token threshold, and stores everything
+      it touches in SQLite with a reversible codec you can verify yourself — without ever
+      mutating the cached prefix your provider is billing you for.
+    </p>
+    <div class="cta-row">
+      <a class="btn primary" href="#benchmarks">See measured benchmarks</a>
+      <a class="btn secondary" href="https://github.com" onclick="return false" title="Configure your own remote">GitHub (self-hosted)</a>
+    </div>
+  </section>
+
+  <section id="rules">
+    <h2>Non-negotiable rules</h2>
+    <p class="section-sub">These are enforced in code and covered by tests — not aspirational.</p>
+    <ul class="rules-list">
+      <li>
+        <strong>Cache prefix immutability</strong>
+        <span>Every frozen prefix is checksummed with SHA-256 on registration. Any later mismatch raises <code>CachePrefixMutationError</code> instead of silently re-sending a broken cache.</span>
+      </li>
+      <li>
+        <strong>Strict metric separation</strong>
+        <span>Token Reduction %, Cost Reduction %, and Call Reduction % are computed and reported independently. There is no blended "efficiency score" anywhere in this codebase.</span>
+      </li>
+      <li>
+        <strong>Real tokenization only</strong>
+        <span>Counts come from named tokenizers — <code>cl100k_base</code> via tiktoken for OpenAI, a community-mirrored <code>claude-bpe</code> vocab for Anthropic. Character counts exist only as a secondary, storage-layer statistic.</span>
+      </li>
+      <li>
+        <strong>Lossy passes default off</strong>
+        <span>Structural stripping, eco trimming, pruning, numeric quantization, and query filtering all require explicit opt-in. Measured faithfulness costs are published below, including the unflattering ones.</span>
+      </li>
+      <li>
+        <strong>The storage codec never reaches the model</strong>
+        <span><code>.zclaw</code> is an n-gram + DEFLATE codec that lives strictly inside the SQLite storage layer. The model only ever sees plain text; round-trip is verified byte-identical on every corpus payload in CI.</span>
+      </li>
+    </ul>
+  </section>
+
+  <section id="modules">
+    <h2>Modules</h2>
+    <p class="section-sub">Organized by concern, not by feature branch.</p>
+    <div class="grid">
+      <div class="card"><h3>core/</h3><p>cache_boundary, observation_masking, compaction, blackboard, guardrails, routing, lossy_passes, tool_pruning, semantic_dedup, branch_collapse</p></div>
+      <div class="card"><h3>adapters/</h3><p>openai_adapter, anthropic_adapter — thin async httpx relays that extract and preserve the frozen prefix</p></div>
+      <div class="card"><h3>proxy/</h3><p>server (FastAPI, <code>/v1/chat/completions</code>, <code>/v1/messages</code>, <code>/v1/metrics</code>, <code>/healthz</code>), config, metrics</p></div>
+      <div class="card"><h3>storage/</h3><p>sqlite_store (blackboard + artifacts + metrics events), zclaw (reversible codec)</p></div>
+    </div>
+  </section>
+
+  <section id="benchmarks">
+    <h2>Benchmarks</h2>
+    <p class="section-sub">Run against a 55-payload hand-authored corpus (prose, code, HTML, tables, agent transcripts, adversarial negations). Full methodology and raw numbers in <code>BENCHMARKS.md</code> and the <a href="benchmarks/index.html">interactive visualizer</a>.</p>
+    <div class="grid">
+      <div class="card"><h3>Round-trip proof</h3><p>55/55 corpus payloads decode byte-identical through <code>.zclaw</code>. This is a pass/fail gate in CI, not a sampled estimate.</p></div>
+      <div class="card"><h3>Faithfulness matrix</h3><p>Per-pass, per-aggression-tier retention of numbers, dates, negations, and task-completion facts — including cases where retention drops to 0%.</p></div>
+      <div class="card"><h3>Latency</h3><p>Gateway-side processing overhead only (masking, compaction, guardrails), measured cold and warm across 1000 requests. Does not include upstream provider latency.</p></div>
+      <div class="card"><h3>Cost model</h3><p>An analytical simulation comparing four strategies across OpenAI and Anthropic pricing. Explicitly labeled illustrative, not live pricing.</p></div>
+    </div>
+  </section>
+
+  <section id="honesty">
+    <h2>Honesty notes</h2>
+    <div class="honesty-box">
+      <h3>What this is not</h3>
+      <p>This is not a claim that lossy passes are safe to enable by default — the faithfulness matrix shows pruning at MEDIUM/HIGH aggression drops task-completion retention to 0% on the adversarial corpus. It is not a claim that Docker builds were verified in a live registry pull — the local dev sandbox had no Docker daemon, so the Dockerfile is reviewed but not locally build-tested. The Claude tokenizer is a community-mirrored approximation, not Anthropic's literal production vocabulary. All cost figures are simulations against a fixed loop shape, not observed provider bills.</p>
+    </div>
+  </section>
+</main>
+
+<footer class="site">
+  <div class="wrap">Agent Gateway — self-hosted, local-first. No telemetry leaves your machine.</div>
+</footer>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+{
+  "id": "html-03",
+  "category": "html",
+  "text": "<div class=\"alert alert-warning\">\n  <p><strong>Maintenance Notice:</strong> The service will be unavailable on\n     2024-08-01 from 02:00 to 04:00 UTC. No data will be lost during this window.</p>\n</div>\n<footer>\n  <p>&copy; 2024 Example Corp. Not affiliated with any third-party trademark holders.</p>\n</footer>",
+  "facts": {
+    "numbers": [
+      "-01",
+      "-08",
+      "00",
+      "02",
+      "04",
+      "2024"
+    ],
+    "dates": [
+      "2024-08-01"
+    ],
+    "negations": [
+      "not"
+    ]
+  }
+}

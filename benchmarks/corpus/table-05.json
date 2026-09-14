@@ -1,0 +1,25 @@
+{
+  "id": "table-05",
+  "category": "table",
+  "text": "| Test Case | Expected | Actual | Pass |\n|-----------|----------|--------|------|\n| TC-001    | 200      | 200    | Yes  |\n| TC-002    | 404      | 500    | No   |\n| TC-003    | true     | true   | Yes  |\n| TC-004    | null     | null   | Yes  |\n\nTC-002 does not currently pass; the fix is scheduled for the 2024-09-20 release.",
+  "facts": {
+    "numbers": [
+      "-001",
+      "-002",
+      "-003",
+      "-004",
+      "-09",
+      "-20",
+      "200",
+      "2024",
+      "404",
+      "500"
+    ],
+    "dates": [
+      "2024-09-20"
+    ],
+    "negations": [
+      "not"
+    ]
+  }
+}

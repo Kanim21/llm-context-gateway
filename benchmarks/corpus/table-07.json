@@ -1,0 +1,22 @@
+{
+  "id": "table-07",
+  "category": "table",
+  "text": "| Sensor | Reading | Threshold | Alert |\n|--------|--------:|----------:|-------|\n| Temp-1 | 78.4    | 85.0      | No    |\n| Temp-2 | 91.2    | 85.0      | Yes   |\n| Pres-1 | 14.6    | 20.0      | No    |\n\nTemp-2 has not returned below threshold since the alert triggered at 03:12 UTC.",
+  "facts": {
+    "numbers": [
+      "-1",
+      "-2",
+      "03",
+      "12",
+      "14.6",
+      "20.0",
+      "78.4",
+      "85.0",
+      "91.2"
+    ],
+    "dates": [],
+    "negations": [
+      "not"
+    ]
+  }
+}

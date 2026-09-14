@@ -1,0 +1,15 @@
+{
+  "id": "prose-04",
+  "category": "prose",
+  "text": "Quantum entanglement does not allow faster-than-light communication, despite common misconceptions. When two particles are entangled, measuring one instantly determines the state of the other regardless of distance, but no usable information can be transmitted this way because the outcome of the local measurement is random. Einstein famously called this 'spooky action at a distance' and was never fully comfortable with it, though experiments since the 1980s have repeatedly confirmed the effect.",
+  "facts": {
+    "numbers": [
+      "1980"
+    ],
+    "dates": [],
+    "negations": [
+      "never",
+      "not"
+    ]
+  }
+}

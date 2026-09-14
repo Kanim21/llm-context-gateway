@@ -1,0 +1,19 @@
+{
+  "id": "html-07",
+  "category": "html",
+  "text": "<blockquote cite=\"https://example.com/interview\">\n  <p>\"We are not planning to raise prices in 2025,\" said the spokesperson,\n     \"though the free tier's storage limit will drop from 5GB to 2GB on\n     2025-01-01.\"</p>\n</blockquote>",
+  "facts": {
+    "numbers": [
+      "-01",
+      "2",
+      "2025",
+      "5"
+    ],
+    "dates": [
+      "2025-01-01"
+    ],
+    "negations": [
+      "not"
+    ]
+  }
+}

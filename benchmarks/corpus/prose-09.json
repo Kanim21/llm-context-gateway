@@ -1,0 +1,15 @@
+{
+  "id": "prose-09",
+  "category": "prose",
+  "text": "Antibiotic resistance does not develop within an individual bacterium during a single course of treatment in the way many people imagine; rather, resistant strains that already exist at low frequency are selected for and proliferate when susceptible bacteria are killed off. The World Health Organization has warned that, without coordinated action, common infections could once again become untreatable by 2050.",
+  "facts": {
+    "numbers": [
+      "2050"
+    ],
+    "dates": [],
+    "negations": [
+      "not",
+      "without"
+    ]
+  }
+}

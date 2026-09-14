@@ -1,0 +1,13 @@
+{
+  "id": "code-04-rust",
+  "category": "code",
+  "text": "fn quicksort<T: Ord + Clone>(arr: &[T]) -> Vec<T> {\n    if arr.len() <= 1 {\n        return arr.to_vec();\n    }\n    let pivot = arr[arr.len() / 2].clone();\n    let less: Vec<T> = arr.iter().filter(|x| **x < pivot).cloned().collect();\n    let equal: Vec<T> = arr.iter().filter(|x| **x == pivot).cloned().collect();\n    let greater: Vec<T> = arr.iter().filter(|x| **x > pivot).cloned().collect();\n    [quicksort(&less), equal, quicksort(&greater)].concat()\n}\n",
+  "facts": {
+    "numbers": [
+      "1",
+      "2"
+    ],
+    "dates": [],
+    "negations": []
+  }
+}

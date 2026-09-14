@@ -1,0 +1,13 @@
+{
+  "id": "adversarial-negation-05",
+  "category": "adversarial_negation",
+  "text": "The study did not find that the drug is ineffective; rather, it found no statistically significant difference at the tested dose, which is not the same conclusion as 'it doesn't work.'",
+  "facts": {
+    "numbers": [],
+    "dates": [],
+    "negations": [
+      "doesn't",
+      "not"
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "id": "prose-10",
+  "category": "prose",
+  "text": "The Amazon rainforest produces roughly 20% of the world's oxygen, though scientists note this figure is often misunderstood: the rainforest is not a net oxygen source for the planet overall, because decomposition and respiration by the same ecosystem consume nearly all the oxygen it generates. It does, however, store an estimated 76 billion tons of carbon and spans about 5.5 million square kilometers.",
+  "facts": {
+    "numbers": [
+      "20%",
+      "5.5",
+      "76"
+    ],
+    "dates": [],
+    "negations": [
+      "not"
+    ]
+  }
+}

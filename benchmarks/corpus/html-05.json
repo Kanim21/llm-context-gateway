@@ -1,0 +1,13 @@
+{
+  "id": "html-05",
+  "category": "html",
+  "text": "<form action=\"/subscribe\" method=\"post\">\n  <label for=\"email\">Email (we will never share it):</label>\n  <input type=\"email\" id=\"email\" name=\"email\" required>\n  <button type=\"submit\">Subscribe</button>\n</form>\n<p class=\"disclaimer\">You can unsubscribe at any time. We do not sell your data.</p>",
+  "facts": {
+    "numbers": [],
+    "dates": [],
+    "negations": [
+      "never",
+      "not"
+    ]
+  }
+}

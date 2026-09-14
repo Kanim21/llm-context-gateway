@@ -1,0 +1,19 @@
+{
+  "id": "adversarial-negation-02",
+  "category": "adversarial_negation",
+  "text": "It is not true that the server never restarted last night -- it restarted twice, at 02:14 and 03:47 UTC, neither of which was scheduled.",
+  "facts": {
+    "numbers": [
+      "02",
+      "03",
+      "14",
+      "47"
+    ],
+    "dates": [],
+    "negations": [
+      "neither",
+      "never",
+      "not"
+    ]
+  }
+}

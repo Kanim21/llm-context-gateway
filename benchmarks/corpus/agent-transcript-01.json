@@ -1,0 +1,19 @@
+{
+  "id": "agent-transcript-01",
+  "category": "agent_transcript",
+  "text": "[Step 1] Tool: list_files(path='/repo/src')\nOutput: 42 files found: main.py, utils.py, config.py, ... (39 more). No errors encountered.\n[Step 2] Tool: read_file(path='/repo/src/main.py')\nOutput: 218 lines. The file does not currently have a main() guard; imports numpy, requests, and internal module `pipeline`.\n[Step 3] Agent: I will not modify main.py yet; first checking config.py.",
+  "facts": {
+    "numbers": [
+      "1",
+      "2",
+      "218",
+      "3",
+      "39",
+      "42"
+    ],
+    "dates": [],
+    "negations": [
+      "not"
+    ]
+  }
+}

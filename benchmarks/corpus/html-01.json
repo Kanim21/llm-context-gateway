@@ -1,0 +1,25 @@
+{
+  "id": "html-01",
+  "category": "html",
+  "text": "<!DOCTYPE html>\n<html>\n<head><title>Q3 2024 Report</title></head>\n<body>\n  <h1>Quarterly Summary</h1>\n  <p>Revenue grew by <strong>14.2%</strong> compared to Q2 2024, reaching $3.4 million.\n     Customer churn did <em>not</em> improve, remaining flat at 4.1%.</p>\n  <ul>\n    <li>New signups: 1,204</li>\n    <li>Active accounts: 8,930</li>\n    <li>Support tickets: 412 (down from 501)</li>\n  </ul>\n</body>\n</html>",
+  "facts": {
+    "numbers": [
+      "1",
+      "14.2%",
+      "2",
+      "2024",
+      "204",
+      "3",
+      "3.4",
+      "4.1%",
+      "412",
+      "501",
+      "8",
+      "930"
+    ],
+    "dates": [],
+    "negations": [
+      "not"
+    ]
+  }
+}

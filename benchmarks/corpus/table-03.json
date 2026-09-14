@@ -1,0 +1,24 @@
+{
+  "id": "table-03",
+  "category": "table",
+  "text": "| Metric              | Baseline | After Optimization |\n|---------------------|---------:|--------------------:|\n| p50 latency (ms)     | 142      | 61                  |\n| p95 latency (ms)     | 890      | 310                 |\n| p99 latency (ms)     | 2100     | 740                 |\n| Error rate           | 0.8%     | 0.3%                |\n\nThe optimization did not change the p99 latency by an order of magnitude,\ncontrary to the initial (incorrect) internal estimate.",
+  "facts": {
+    "numbers": [
+      "0.3%",
+      "0.8%",
+      "142",
+      "2100",
+      "310",
+      "50",
+      "61",
+      "740",
+      "890",
+      "95",
+      "99"
+    ],
+    "dates": [],
+    "negations": [
+      "not"
+    ]
+  }
+}

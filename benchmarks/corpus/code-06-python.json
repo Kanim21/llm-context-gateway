@@ -1,0 +1,15 @@
+{
+  "id": "code-06-python",
+  "category": "code",
+  "text": "class LRUCache:\n    \"\"\"A fixed-capacity cache that evicts the least-recently-used item.\"\"\"\n\n    def __init__(self, capacity: int):\n        if capacity <= 0:\n            raise ValueError(\"capacity must be positive\")\n        self.capacity = capacity\n        self._data = {}\n        self._order = []\n\n    def get(self, key):\n        if key not in self._data:\n            return None\n        self._order.remove(key)\n        self._order.append(key)\n        return self._data[key]\n\n    def put(self, key, value):\n        if key in self._data:\n            self._order.remove(key)\n        elif len(self._data) >= self.capacity:\n            oldest = self._order.pop(0)\n            del self._data[oldest]\n        self._data[key] = value\n        self._order.append(key)\n",
+  "facts": {
+    "numbers": [
+      "0"
+    ],
+    "dates": [],
+    "negations": [
+      "none",
+      "not"
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "id": "prose-08",
+  "category": "prose",
+  "text": "The Apollo 11 mission landed on the Moon on July 20, 1969. Neil Armstrong and Buzz Aldrin spent about 21 hours and 36 minutes on the lunar surface, while Michael Collins remained in orbit and never set foot on the Moon. Contrary to some accounts, the landing was not fully automated -- Armstrong took manual control during the final descent after noticing the autopilot was targeting a boulder field.",
+  "facts": {
+    "numbers": [
+      "11",
+      "1969",
+      "20",
+      "21",
+      "36"
+    ],
+    "dates": [
+      "July 20, 1969"
+    ],
+    "negations": [
+      "never",
+      "not"
+    ]
+  }
+}

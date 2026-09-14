@@ -1,0 +1,16 @@
+{
+  "id": "prose-06",
+  "category": "prose",
+  "text": "The printing press, introduced by Johannes Gutenberg around 1440, did not invent movable type -- that had already appeared in China and Korea centuries earlier. Gutenberg's contribution was an oil-based ink and a practical hand mould that made casting durable, reusable type economically viable in Europe. Within 50 years, printing presses had been established in over 200 European cities.",
+  "facts": {
+    "numbers": [
+      "1440",
+      "200",
+      "50"
+    ],
+    "dates": [],
+    "negations": [
+      "not"
+    ]
+  }
+}

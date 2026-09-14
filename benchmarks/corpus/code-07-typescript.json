@@ -1,0 +1,13 @@
+{
+  "id": "code-07-typescript",
+  "category": "code",
+  "text": "interface RetryPolicy {\n  maxAttempts: number;\n  backoffMs: number;\n}\n\nfunction withRetryPolicy<T>(fn: () => Promise<T>, policy: RetryPolicy): Promise<T> {\n  let attempt = 0;\n  const run = async (): Promise<T> => {\n    try {\n      return await fn();\n    } catch (err) {\n      attempt += 1;\n      if (attempt >= policy.maxAttempts) throw err;\n      await new Promise((r) => setTimeout(r, policy.backoffMs * attempt));\n      return run();\n    }\n  };\n  return run();\n}\n",
+  "facts": {
+    "numbers": [
+      "0",
+      "1"
+    ],
+    "dates": [],
+    "negations": []
+  }
+}

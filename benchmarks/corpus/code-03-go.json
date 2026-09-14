@@ -1,0 +1,14 @@
+{
+  "id": "code-03-go",
+  "category": "code",
+  "text": "func Fibonacci(n int) int {\n\tif n < 2 {\n\t\treturn n\n\t}\n\ta, b := 0, 1\n\tfor i := 2; i <= n; i++ {\n\t\ta, b = b, a+b\n\t}\n\treturn b\n}\n",
+  "facts": {
+    "numbers": [
+      "0",
+      "1",
+      "2"
+    ],
+    "dates": [],
+    "negations": []
+  }
+}

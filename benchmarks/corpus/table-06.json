@@ -1,0 +1,28 @@
+{
+  "id": "table-06",
+  "category": "table",
+  "text": "| Country   | Capital     | Population (M) | Independence |\n|-----------|-------------|----------------:|--------------|\n| Kenya     | Nairobi     | 55.1             | 1963-12-12   |\n| Peru      | Lima        | 34.4             | 1821-07-28   |\n| Vietnam   | Hanoi       | 98.2             | 1945-09-02   |\n\nNone of these figures include diaspora populations living abroad.",
+  "facts": {
+    "numbers": [
+      "-02",
+      "-07",
+      "-09",
+      "-12",
+      "-28",
+      "1821",
+      "1945",
+      "1963",
+      "34.4",
+      "55.1",
+      "98.2"
+    ],
+    "dates": [
+      "1821-07-28",
+      "1945-09-02",
+      "1963-12-12"
+    ],
+    "negations": [
+      "none"
+    ]
+  }
+}

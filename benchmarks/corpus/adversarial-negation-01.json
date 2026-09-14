@@ -1,0 +1,12 @@
+{
+  "id": "adversarial-negation-01",
+  "category": "adversarial_negation",
+  "text": "The patch does not fix the memory leak; it only reduces its rate of growth, which is not the same thing as a fix and should not be reported as one.",
+  "facts": {
+    "numbers": [],
+    "dates": [],
+    "negations": [
+      "not"
+    ]
+  }
+}

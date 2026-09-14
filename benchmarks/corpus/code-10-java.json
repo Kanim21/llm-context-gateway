@@ -1,0 +1,13 @@
+{
+  "id": "code-10-java",
+  "category": "code",
+  "text": "public class RateLimiter {\n    private final int maxTokens;\n    private double tokens;\n    private long lastRefillMs;\n    private final double refillPerMs;\n\n    public RateLimiter(int maxTokens, double refillPerSecond) {\n        this.maxTokens = maxTokens;\n        this.tokens = maxTokens;\n        this.refillPerMs = refillPerSecond / 1000.0;\n        this.lastRefillMs = System.currentTimeMillis();\n    }\n\n    public synchronized boolean tryAcquire() {\n        long now = System.currentTimeMillis();\n        tokens = Math.min(maxTokens, tokens + (now - lastRefillMs) * refillPerMs);\n        lastRefillMs = now;\n        if (tokens >= 1.0) {\n            tokens -= 1.0;\n            return true;\n        }\n        return false;\n    }\n}\n",
+  "facts": {
+    "numbers": [
+      "1.0",
+      "1000.0"
+    ],
+    "dates": [],
+    "negations": []
+  }
+}

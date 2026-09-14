@@ -1,0 +1,24 @@
+{
+  "id": "table-08",
+  "category": "table",
+  "text": "| Model      | Accuracy | F1 Score | Params (M) |\n|------------|---------:|---------:|-----------:|\n| baseline   | 0.812    | 0.798    | 12         |\n| v2         | 0.847    | 0.831    | 24         |\n| v3 (final) | 0.891    | 0.879    | 24         |\n\nv3 does not use more parameters than v2 -- the accuracy gain came entirely\nfrom a change in the training data mix.",
+  "facts": {
+    "numbers": [
+      "0.798",
+      "0.812",
+      "0.831",
+      "0.847",
+      "0.879",
+      "0.891",
+      "1",
+      "12",
+      "2",
+      "24",
+      "3"
+    ],
+    "dates": [],
+    "negations": [
+      "not"
+    ]
+  }
+}

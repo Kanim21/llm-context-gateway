@@ -1,0 +1,21 @@
+{
+  "id": "agent-transcript-03",
+  "category": "agent_transcript",
+  "text": "[Step 1] Tool: search_codebase(query='rate limit')\nOutput: 6 matches across 4 files: rate_limiter.py (3), middleware.py (2), config.py (1).\n[Step 2] Tool: read_file(path='rate_limiter.py')\nOutput: 94 lines. Uses a token-bucket algorithm; default capacity is 100 tokens, refill rate 10/sec. Does not currently support per-user overrides.\n[Step 3] Agent: Adding a per-user override is not a breaking change since the default behavior is preserved.",
+  "facts": {
+    "numbers": [
+      "1",
+      "10",
+      "100",
+      "2",
+      "3",
+      "4",
+      "6",
+      "94"
+    ],
+    "dates": [],
+    "negations": [
+      "not"
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "id": "code-09-c",
+  "category": "code",
+  "text": "int gcd(int a, int b) {\n    while (b != 0) {\n        int t = b;\n        b = a % b;\n        a = t;\n    }\n    return a;\n}\n",
+  "facts": {
+    "numbers": [
+      "0"
+    ],
+    "dates": [],
+    "negations": []
+  }
+}

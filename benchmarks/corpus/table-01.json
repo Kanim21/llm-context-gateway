@@ -1,0 +1,27 @@
+{
+  "id": "table-01",
+  "category": "table",
+  "text": "| Quarter | Revenue ($M) | YoY Growth |\n|---------|-------------:|-----------:|\n| Q1 2024 | 2.1          | 8.4%       |\n| Q2 2024 | 2.6          | 11.2%      |\n| Q3 2024 | 3.4          | 14.2%      |\n| Q4 2024 | 3.1          | -8.8%      |\n\nNote: Q4 revenue did not meet the internal forecast of $3.9M.",
+  "facts": {
+    "numbers": [
+      "-8.8%",
+      "1",
+      "11.2%",
+      "14.2%",
+      "2",
+      "2.1",
+      "2.6",
+      "2024",
+      "3",
+      "3.1",
+      "3.4",
+      "3.9",
+      "4",
+      "8.4%"
+    ],
+    "dates": [],
+    "negations": [
+      "not"
+    ]
+  }
+}

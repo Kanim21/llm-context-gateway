@@ -1,0 +1,12 @@
+{
+  "id": "adversarial-negation-07",
+  "category": "adversarial_negation",
+  "text": "The audit did not uncover any fraud, but it did note that internal controls were not consistently followed, which is not evidence of wrongdoing yet is also not something that should be ignored.",
+  "facts": {
+    "numbers": [],
+    "dates": [],
+    "negations": [
+      "not"
+    ]
+  }
+}

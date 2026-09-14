@@ -1,0 +1,133 @@
+:root {
+  color-scheme: dark;
+  --bg: #0b0e14;
+  --bg-elevated: #121722;
+  --border: #232a3a;
+  --text: #e6e9ef;
+  --text-dim: #9aa4b8;
+  --accent: #5eead4;
+  --accent-dim: #2dd4bf;
+  --danger: #f87171;
+  --warn: #fbbf24;
+  --ok: #4ade80;
+  --code-bg: #0f1420;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+  line-height: 1.6;
+}
+
+.wrap { max-width: 1080px; margin: 0 auto; padding: 24px 20px 64px; }
+
+header.viz {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 16px;
+  margin-bottom: 28px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+header.viz h1 { font-size: 1.4rem; margin: 0; letter-spacing: -0.01em; }
+header.viz a { color: var(--text-dim); font-size: 0.88rem; text-decoration: none; }
+header.viz a:hover { color: var(--accent); }
+
+#status {
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  margin-bottom: 24px;
+}
+#status.error { border-color: var(--danger); color: var(--danger); }
+#status.ok { display: none; }
+
+.tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 22px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0;
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 0.92rem;
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+
+.panel { display: none; }
+.panel.active { display: block; }
+
+.stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 24px; }
+.stat-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.stat-card .value { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em; }
+.stat-card .value.ok { color: var(--ok); }
+.stat-card .value.warn { color: var(--warn); }
+.stat-card .label { color: var(--text-dim); font-size: 0.82rem; margin-top: 2px; }
+
+table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+th { color: var(--text-dim); font-weight: 600; position: sticky; top: 0; background: var(--bg); }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+tr.fail td { color: var(--danger); }
+.table-scroll { max-height: 480px; overflow-y: auto; overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
+
+.cell-good { color: var(--ok); }
+.cell-warn { color: var(--warn); }
+.cell-bad { color: var(--danger); }
+
+.control-row { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+select, button.chip {
+  background: var(--bg-elevated);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 0.86rem;
+}
+button.chip { cursor: pointer; }
+button.chip[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+
+.chart-box {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+.chart-box h3 { margin: 0 0 12px; font-size: 0.95rem; color: var(--text-dim); font-weight: 600; }
+canvas { width: 100%; display: block; }
+
+.legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; font-size: 0.82rem; color: var(--text-dim); }
+.legend span.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+
+.note { color: var(--text-dim); font-size: 0.85rem; margin: 8px 0 0; }
+
+@media (max-width: 480px) {
+  header.viz { flex-direction: column; align-items: flex-start; }
+}

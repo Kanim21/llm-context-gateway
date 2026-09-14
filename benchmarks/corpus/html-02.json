@@ -1,0 +1,23 @@
+{
+  "id": "html-02",
+  "category": "html",
+  "text": "<article>\n  <header><h2>Release Notes -- v2.3.0</h2></header>\n  <p>This release does not include the previously announced dark mode toggle;\n     it has been deferred to v2.4.0, expected on 2024-11-15.</p>\n  <table border=\"1\">\n    <tr><th>Component</th><th>Status</th></tr>\n    <tr><td>API Gateway</td><td>Stable</td></tr>\n    <tr><td>Auth Service</td><td>Beta</td></tr>\n  </table>\n</article>",
+  "facts": {
+    "numbers": [
+      "-11",
+      "-15",
+      "0",
+      "1",
+      "2",
+      "2.3",
+      "2.4",
+      "2024"
+    ],
+    "dates": [
+      "2024-11-15"
+    ],
+    "negations": [
+      "not"
+    ]
+  }
+}

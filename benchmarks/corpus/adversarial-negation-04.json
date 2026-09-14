@@ -1,0 +1,12 @@
+{
+  "id": "adversarial-negation-04",
+  "category": "adversarial_negation",
+  "text": "Nobody on the team said the migration was risk-free; what was said is that it was not expected to cause downtime, which turned out to be correct -- there was no downtime, though there was a brief period of degraded read latency that was not zero.",
+  "facts": {
+    "numbers": [],
+    "dates": [],
+    "negations": [
+      "not"
+    ]
+  }
+}

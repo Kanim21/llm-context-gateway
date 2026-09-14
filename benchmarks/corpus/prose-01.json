@@ -1,0 +1,21 @@
+{
+  "id": "prose-01",
+  "category": "prose",
+  "text": "The Wright brothers achieved the first sustained, controlled, powered flight on December 17, 1903, at Kitty Hawk, North Carolina. The flight covered 120 feet and lasted 12 seconds. Orville Wright was the pilot for that first flight; Wilbur flew a later attempt the same day that covered 852 feet. Contrary to popular belief, the brothers were not trained engineers -- they ran a bicycle repair shop in Dayton, Ohio, and did not have a college education. Their systematic wind-tunnel testing, however, was not amateurish: they tested over 200 wing designs before settling on their final configuration.",
+  "facts": {
+    "numbers": [
+      "12",
+      "120",
+      "17",
+      "1903",
+      "200",
+      "852"
+    ],
+    "dates": [
+      "December 17, 1903"
+    ],
+    "negations": [
+      "not"
+    ]
+  }
+}

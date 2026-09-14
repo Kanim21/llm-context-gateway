@@ -1,0 +1,24 @@
+{
+  "id": "table-04",
+  "category": "table",
+  "text": "| Species          | Population (2010) | Population (2024) | Trend |\n|------------------|-------------------:|-------------------:|-------|\n| Snow Leopard     | 4,080              | 4,678               | Up    |\n| Amur Tiger       | 360                | 540                 | Up    |\n| Vaquita          | 245                | 10                  | Down  |\n| Javan Rhino      | 40                 | 76                  | Up    |\n\nThe vaquita population has not stabilized despite conservation efforts\nsince 2010.",
+  "facts": {
+    "numbers": [
+      "080",
+      "10",
+      "2010",
+      "2024",
+      "245",
+      "360",
+      "4",
+      "40",
+      "540",
+      "678",
+      "76"
+    ],
+    "dates": [],
+    "negations": [
+      "not"
+    ]
+  }
+}
