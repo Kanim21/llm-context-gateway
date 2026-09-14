@@ -68,6 +68,7 @@ export default function RunPage() {
       {gate && (
         <GateReviewPanel
           runId={runId}
+          stepIndex={gate.step_index}
           label={gate.label}
           allowEdit={gate.allow_edit}
           proposedOutput={gate.proposed_output}

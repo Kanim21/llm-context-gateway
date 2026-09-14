@@ -176,7 +176,7 @@ class TestRequestValidation:
             assert run_resp.json()["status"] == "paused"
 
             resp = await client.post(f"/v1/playbooks/runs/{run_id}/gate",
-                                      json={"decision": "banana"})
+                                      json={"decision": "banana", "step_index": 0})
             assert resp.status_code == 422
 
             snapshot = await client.get(f"/v1/playbooks/runs/{run_id}")
@@ -194,12 +194,12 @@ class TestGateDoubleSubmit:
             run_id = run_resp.json()["id"]
 
             first = await client.post(f"/v1/playbooks/runs/{run_id}/gate",
-                                       json={"decision": "approve"})
+                                       json={"decision": "approve", "step_index": 0})
             assert first.status_code == 200
             assert first.json()["status"] == "completed"
 
             second = await client.post(f"/v1/playbooks/runs/{run_id}/gate",
-                                        json={"decision": "reject"})
+                                        json={"decision": "reject", "step_index": 0})
             assert second.status_code == 409
 
             snapshot = await client.get(f"/v1/playbooks/runs/{run_id}")
@@ -227,8 +227,79 @@ class TestGateDecision:
             run_id = run_resp.json()["id"]
 
             decision_resp = await client.post(f"/v1/playbooks/runs/{run_id}/gate",
-                                               json={"decision": "approve"})
+                                               json={"decision": "approve", "step_index": 0})
             assert decision_resp.status_code == 200
 
             snapshot_resp = await client.get(f"/v1/playbooks/runs/{run_id}")
             assert snapshot_resp.json()["status"] == "completed"
+
+
+class TestGateStepIndexMismatch:
+    async def test_stale_decision_for_earlier_gate_does_not_approve_a_later_gate(self):
+        """Reproduces the N1 finding: on a playbook with two gates, a duplicate
+        or stale decision submission that names the *already-decided* gate must
+        not be silently applied to whatever gate the run has since advanced to."""
+        canvas = {
+            "nodes": [
+                {"id": "start", "type": "start", "data": {}},
+                {"id": "g1", "type": "approval_gate", "data": {"label": "Review 1"}},
+                {"id": "t1", "type": "teammate", "data": {"role": "R", "objective": "O", "tier": "speed"}},
+                {"id": "g2", "type": "approval_gate", "data": {"label": "Review 2"}},
+                {"id": "t2", "type": "teammate", "data": {"role": "R2", "objective": "O2", "tier": "speed"}},
+                {"id": "end", "type": "end", "data": {}},
+            ],
+            "edges": [
+                {"source": "start", "target": "g1"}, {"source": "g1", "target": "t1"},
+                {"source": "t1", "target": "g2"}, {"source": "g2", "target": "t2"},
+                {"source": "t2", "target": "end"},
+            ],
+        }
+        async with _client() as client:
+            create_resp = await client.post("/v1/playbooks",
+                                             json={"name": "TwoGate", "canvas_json": canvas})
+            playbook_id = create_resp.json()["id"]
+            run_resp = await client.post(f"/v1/playbooks/{playbook_id}/runs",
+                                          json={"input": {"text": "hi"}})
+            run_id = run_resp.json()["id"]
+            assert run_resp.json()["status"] == "paused"
+            assert run_resp.json()["current_step_index"] == 0  # paused at g1
+
+            first = await client.post(f"/v1/playbooks/runs/{run_id}/gate",
+                                       json={"decision": "approve", "step_index": 0})
+            assert first.status_code == 200
+            assert first.json()["status"] == "paused"
+            assert first.json()["current_step_index"] == 2  # advanced to g2
+
+            # Stale/duplicate submission still naming g1 must be rejected, not
+            # silently applied to g2 (the run's actual current gate).
+            second = await client.post(f"/v1/playbooks/runs/{run_id}/gate",
+                                        json={"decision": "approve", "step_index": 0})
+            assert second.status_code == 409
+
+            snapshot = await client.get(f"/v1/playbooks/runs/{run_id}")
+            assert snapshot.json()["status"] == "paused"
+            assert snapshot.json()["current_step_index"] == 2
+
+            # The correct step_index for the run's actual current gate still works.
+            correct = await client.post(f"/v1/playbooks/runs/{run_id}/gate",
+                                         json={"decision": "approve", "step_index": 2})
+            assert correct.status_code == 200
+            assert correct.json()["status"] == "completed"
+
+    async def test_wrong_step_index_on_single_gate_playbook_returns_409(self):
+        async with _client() as client:
+            create_resp = await client.post("/v1/playbooks",
+                                             json={"name": "Gated", "canvas_json": _GATED_CANVAS})
+            playbook_id = create_resp.json()["id"]
+            run_resp = await client.post(f"/v1/playbooks/{playbook_id}/runs",
+                                          json={"input": {"text": "hi"}})
+            run_id = run_resp.json()["id"]
+            assert run_resp.json()["current_step_index"] == 0
+
+            resp = await client.post(f"/v1/playbooks/runs/{run_id}/gate",
+                                      json={"decision": "approve", "step_index": 7})
+            assert resp.status_code == 409
+
+            snapshot = await client.get(f"/v1/playbooks/runs/{run_id}")
+            assert snapshot.json()["status"] == "paused"
+            assert snapshot.json()["current_step_index"] == 0

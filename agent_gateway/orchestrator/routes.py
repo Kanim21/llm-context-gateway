@@ -34,6 +34,7 @@ class GateDecisionRequest(BaseModel):
     # Literal, not str: an unrecognised decision must be rejected here rather
     # than fall through to the approve path in the engine.
     decision: Literal["approve", "edit", "reject"]
+    step_index: int
     edited_output: dict | None = None
 
 
@@ -114,7 +115,8 @@ def build_router() -> APIRouter:
         playbook = Playbook.model_validate(playbook_row["definition_json"])
         try:
             await gw.playbook_runner.resume_with_decision(
-                playbook, run_id, body.decision, edited_output=body.edited_output,
+                playbook, run_id, body.decision, body.step_index,
+                edited_output=body.edited_output,
             )
         except InvalidDecisionError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc

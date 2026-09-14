@@ -30,10 +30,13 @@ describe("api client", () => {
 
   it("submitGateDecision posts to the gate endpoint", async () => {
     (fetch as any).mockResolvedValue({ ok: true, json: async () => ({ id: "run_1", status: "completed" }) });
-    await api.submitGateDecision("run_1", { decision: "approve" });
+    await api.submitGateDecision("run_1", { decision: "approve", step_index: 1 });
     expect(fetch).toHaveBeenCalledWith(
       "http://localhost:8080/v1/playbooks/runs/run_1/gate",
-      expect.objectContaining({ method: "POST", body: JSON.stringify({ decision: "approve" }) }),
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ decision: "approve", step_index: 1 }),
+      }),
     );
   });
 

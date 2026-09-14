@@ -172,6 +172,7 @@ class PlaybookRunner:
         return None
 
     async def resume_with_decision(self, playbook: Playbook, run_id: str, decision: str,
+                                    step_index: int,
                                     edited_output: dict | None = None) -> None:
         if decision not in VALID_DECISIONS:
             raise InvalidDecisionError(
@@ -193,6 +194,12 @@ class PlaybookRunner:
         record = self.store.get_step_record(run_id, index)
         if record is None:
             raise RunStateError(f"Run {run_id} has no step record at index {index}")
+
+        if step_index != run["current_step_index"]:
+            raise RunStateError(
+                f"Run {run_id} is not awaiting a decision for step {step_index} "
+                f"(currently awaiting step {run['current_step_index']})"
+            )
 
         self.store.record_gate_decision(id=new_id("gd"), run_id=run_id, step_index=index,
                                          decision=decision, edited_output_json=edited_output)

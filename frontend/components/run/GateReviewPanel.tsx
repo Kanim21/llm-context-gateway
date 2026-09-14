@@ -5,13 +5,14 @@ import { api } from "@/lib/api/client";
 
 interface GateReviewPanelProps {
   runId: string;
+  stepIndex: number;
   label: string;
   allowEdit: boolean;
   proposedOutput: { text: string };
   onDecided: () => void;
 }
 
-export function GateReviewPanel({ runId, label, allowEdit, proposedOutput, onDecided }: GateReviewPanelProps) {
+export function GateReviewPanel({ runId, stepIndex, label, allowEdit, proposedOutput, onDecided }: GateReviewPanelProps) {
   const [editedText, setEditedText] = useState(proposedOutput.text);
   // A double-click used to fire two decisions; the second one now gets a 409
   // from the backend, but it shouldn't leave the button clickable either.
@@ -24,8 +25,8 @@ export function GateReviewPanel({ runId, label, allowEdit, proposedOutput, onDec
       await api.submitGateDecision(
         runId,
         decision === "edit"
-          ? { decision: "edit", edited_output: { text: editedText } }
-          : { decision },
+          ? { decision: "edit", step_index: stepIndex, edited_output: { text: editedText } }
+          : { decision, step_index: stepIndex },
       );
       onDecided();
     } finally {

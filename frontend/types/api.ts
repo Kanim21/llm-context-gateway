@@ -80,5 +80,6 @@ export type RunEvent =
 
 export interface GateDecision {
   decision: "approve" | "edit" | "reject";
+  step_index: number;
   edited_output?: { text: string };
 }
