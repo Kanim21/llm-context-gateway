@@ -4,8 +4,12 @@ orchestrator objects."""
 
 from __future__ import annotations
 
+import asyncio
+import time
+
 from fastapi.testclient import TestClient
 
+from agent_gateway.orchestrator.engine import PlaybookRunner
 from agent_gateway.proxy.config import GatewayConfig
 from agent_gateway.proxy.server import create_app
 
@@ -38,6 +42,23 @@ class TestOrchestratorWiring:
             })
             assert resp.status_code == 200
             assert resp.headers["access-control-allow-origin"] == "http://localhost:3000"
+
+    def test_startup_does_not_block_on_interrupted_run_recovery(self, monkeypatch):
+        """Recovery replays whole runs, LLM calls included. Awaiting it inline
+        meant the app served nothing -- not even /healthz -- until it finished."""
+        async def slow_recovery(self, playbooks_by_id):
+            await asyncio.sleep(30)
+
+        monkeypatch.setattr(PlaybookRunner, "recover_interrupted_runs", slow_recovery)
+
+        app = create_app(GatewayConfig())
+        started = time.monotonic()
+        with TestClient(app) as client:
+            resp = client.get("/healthz")
+            elapsed = time.monotonic() - started
+            assert resp.status_code == 200
+            assert elapsed < 5, "startup waited on recovery"
+            assert not app.state.recovery_task.done()
 
     def test_templates_are_seeded_on_startup(self):
         app = create_app(GatewayConfig())

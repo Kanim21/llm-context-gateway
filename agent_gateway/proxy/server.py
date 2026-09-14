@@ -13,6 +13,7 @@ module only wires them together and speaks HTTP.
 
 from __future__ import annotations
 
+import asyncio
 import os
 from contextlib import asynccontextmanager
 from typing import Any
@@ -80,10 +81,19 @@ def create_app(config: GatewayConfig | None = None) -> FastAPI:
             row["id"]: Playbook.model_validate(row["definition_json"])
             for row in app.state.gateway.orchestrator_store.list_playbooks()
         }
-        await app.state.gateway.playbook_runner.recover_interrupted_runs(playbooks_by_id)
+        # Recovery replays each interrupted run to completion, including real
+        # LLM calls. Awaiting it here meant the app served nothing -- not even
+        # /healthz -- until every interrupted run finished. Recovery is
+        # idempotent (reset_step_to_pending only fires on a still-"running"
+        # record), so cancelling it at shutdown just defers it to next startup.
+        recovery_task = asyncio.create_task(
+            app.state.gateway.playbook_runner.recover_interrupted_runs(playbooks_by_id)
+        )
+        app.state.recovery_task = recovery_task
         try:
             yield
         finally:
+            recovery_task.cancel()
             await app.state.gateway.aclose()
 
     app = FastAPI(title="Agent Gateway", version="2.0.0", lifespan=lifespan)
