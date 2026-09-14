@@ -40,7 +40,7 @@ async function addATeammate() {
 describe("PlaybookEditorPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (api.getPlaybook as any).mockResolvedValue(playbook);
+    vi.mocked(api.getPlaybook).mockResolvedValue(playbook);
   });
 
   it("says nothing about unsaved teammates until one is added", async () => {

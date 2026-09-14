@@ -23,7 +23,7 @@ export default function PlaybookEditorPage() {
 
   if (!playbook) return <p>Loading…</p>;
 
-  const { nodes, edges } = toFlowGraph(playbook.canvas_json as any);
+  const { nodes, edges } = toFlowGraph(playbook.canvas_json);
   const allNodes = [...nodes, ...extraNodes];
   // There's no endpoint to save a teammate onto an existing playbook yet, so
   // anything added here lives in this tab only -- and Run would run the saved

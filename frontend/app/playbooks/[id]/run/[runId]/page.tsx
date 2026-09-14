@@ -52,7 +52,7 @@ export default function RunPage() {
   useEffect(() => () => useCanvasStore.getState().resetExecutionState(), [runId]);
 
   const graph = useMemo(
-    () => (playbook ? toFlowGraph(playbook.canvas_json as any) : null),
+    () => (playbook ? toFlowGraph(playbook.canvas_json) : null),
     [playbook],
   );
 

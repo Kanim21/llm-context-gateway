@@ -61,13 +61,13 @@ describe("RunPage", () => {
     vi.clearAllMocks();
     vi.stubGlobal("EventSource", SilentEventSource);
     useCanvasStore.getState().resetExecutionState();
-    (api.getPlaybook as any).mockResolvedValue(playbook);
+    vi.mocked(api.getPlaybook).mockResolvedValue(playbook);
   });
 
   it("shows the gate review panel for an already-paused run with no live event", async () => {
     // The reload case: gate_paused fired before this page load existed, so no
     // SSE event will ever arrive for it.
-    (api.getRunSnapshot as any).mockResolvedValue(pausedSnapshot);
+    vi.mocked(api.getRunSnapshot).mockResolvedValue(pausedSnapshot);
 
     render(<RunPage />);
 
@@ -79,7 +79,7 @@ describe("RunPage", () => {
   });
 
   it("renders the playbook canvas and seeds the execution glow from the snapshot", async () => {
-    (api.getRunSnapshot as any).mockResolvedValue({
+    vi.mocked(api.getRunSnapshot).mockResolvedValue({
       ...pausedSnapshot,
       status: "running",
       steps: [

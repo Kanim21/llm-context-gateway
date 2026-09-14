@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { GateReviewPanel } from "./GateReviewPanel";
 import { api } from "@/lib/api/client";
+import type { RunSnapshot } from "@/types/api";
 
 vi.mock("@/lib/api/client", () => ({
   api: { submitGateDecision: vi.fn() },
@@ -30,9 +31,9 @@ describe("GateReviewPanel", () => {
   });
 
   it("only submits once when Approve is double-clicked", async () => {
-    let resolveDecision: (value: unknown) => void = () => {};
-    (api.submitGateDecision as any).mockImplementation(
-      () => new Promise((resolve) => { resolveDecision = resolve; }),
+    let resolveDecision: (value: RunSnapshot) => void = () => {};
+    vi.mocked(api.submitGateDecision).mockImplementation(
+      () => new Promise<RunSnapshot>((resolve) => { resolveDecision = resolve; }),
     );
     render(<GateReviewPanel runId="run_1" label="Review" allowEdit
                              proposedOutput={{ text: "Draft" }} onDecided={vi.fn()} />);
@@ -41,7 +42,7 @@ describe("GateReviewPanel", () => {
     fireEvent.click(approve);
     await waitFor(() => expect((screen.getByText("Reject") as HTMLButtonElement).disabled).toBe(true));
     expect(api.submitGateDecision).toHaveBeenCalledTimes(1);
-    resolveDecision({ id: "run_1", status: "completed" });
+    resolveDecision({ id: "run_1" } as RunSnapshot);
   });
 
   it("Edit submits the edited text", async () => {

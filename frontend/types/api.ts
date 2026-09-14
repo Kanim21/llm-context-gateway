@@ -33,10 +33,22 @@ export interface PlaybookSummary {
   updated_at: string;
 }
 
+export interface CanvasNode {
+  id: string;
+  /** "start" | "end" | "teammate" | "approval_gate" */
+  type: string;
+  data: Record<string, unknown>;
+}
+
+export interface CanvasEdge {
+  source: string;
+  target: string;
+}
+
 export interface PlaybookDetail extends PlaybookSummary {
   schema_version: number;
   definition_json: { steps: PlaybookStep[] };
-  canvas_json: { nodes: unknown[]; edges: unknown[] };
+  canvas_json: { nodes: CanvasNode[]; edges: CanvasEdge[] };
 }
 
 export type RunStatus = "running" | "paused" | "completed" | "failed" | "rejected";
