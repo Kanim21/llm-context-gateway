@@ -124,7 +124,10 @@ class PlaybookRunner:
         try:
             output_text = await self.complete(model=model, prompt=prompt, on_token=on_token)
         except Exception as exc:
-            self.store.update_step_record(record["id"], status="failed", completed_at=_now())
+            # Persist the reason: the run_failed SSE event is transient, so a
+            # user who reloads after a failure would otherwise see no reason.
+            self.store.update_step_record(record["id"], status="failed",
+                                           output_json={"error": str(exc)}, completed_at=_now())
             self.store.update_run_status(run_id, "failed")
             await self.events.publish(run_id, "run_failed", {"step_index": index, "error": str(exc)})
             return

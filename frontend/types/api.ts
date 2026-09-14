@@ -45,7 +45,8 @@ export interface StepSnapshot {
   step_index: number;
   step_id: string;
   status: "pending" | "running" | "completed" | "awaiting_approval" | "failed" | "rejected";
-  output_json: { text: string } | null;
+  // A failed step records { error: "..." } instead of { text: "..." }.
+  output_json: { text?: string; error?: string } | null;
 }
 
 export interface RunSnapshot {

@@ -158,6 +158,7 @@ class TestPlaybookRunnerErrorHandling:
         assert run["status"] == "failed"
         records = store.list_step_records(run_id)
         assert records[0]["status"] == "failed"
+        assert records[0]["output_json"] == {"error": "upstream exploded"}
 
 
 def _playbook_with_gate():
