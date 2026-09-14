@@ -81,6 +81,11 @@ class GatewayConfig(BaseModel):
     lossy_defaults: LossyDefaultsConfig = Field(default_factory=LossyDefaultsConfig)
     storage: StorageConfig = Field(default_factory=StorageConfig)
     providers: ProvidersConfig = Field(default_factory=ProvidersConfig)
+    playbook_tiers: dict[str, str] = Field(
+        default_factory=lambda: {
+            "speed": "gpt-4o-mini", "balanced": "gpt-4o", "brain": "gemini-1.5-pro",
+        }
+    )
 
     @classmethod
     def load(cls, path: str | None = None) -> "GatewayConfig":
