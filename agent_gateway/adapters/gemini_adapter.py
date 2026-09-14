@@ -16,9 +16,28 @@ import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import quote
 from uuid import uuid4
 
 import httpx
+
+
+def _extract_text(content: Any) -> str:
+    """OpenAI allows `content` to be a plain string or a list of content
+    parts (used for vision/multipart messages). Flattens to plain text by
+    concatenating every {"type": "text", "text": ...} part; non-text parts
+    (e.g. image_url) are dropped -- Gemini image support is out of scope
+    for this plan."""
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "".join(
+            part.get("text", "") for part in content
+            if isinstance(part, dict) and part.get("type") == "text"
+        )
+    return ""
 
 
 def translate_request(body: dict[str, Any]) -> dict[str, Any]:
@@ -31,15 +50,15 @@ def translate_request(body: dict[str, Any]) -> dict[str, Any]:
     for msg in messages:
         role = msg.get("role")
         if role == "system":
-            system_parts.append(msg.get("content") or "")
+            system_parts.append(_extract_text(msg.get("content")))
         elif role == "tool":
             contents.append(_translate_tool_result_turn(msg, messages))
         elif role == "assistant" and msg.get("tool_calls"):
             contents.append(_translate_assistant_tool_call_turn(msg))
         elif role == "assistant":
-            contents.append({"role": "model", "parts": [{"text": msg.get("content") or ""}]})
+            contents.append({"role": "model", "parts": [{"text": _extract_text(msg.get("content"))}]})
         else:  # "user"
-            contents.append({"role": "user", "parts": [{"text": msg.get("content") or ""}]})
+            contents.append({"role": "user", "parts": [{"text": _extract_text(msg.get("content"))}]})
 
     gemini_body: dict[str, Any] = {"contents": contents}
     if system_parts:
@@ -60,6 +79,19 @@ def translate_request(body: dict[str, Any]) -> dict[str, Any]:
 
     if body.get("tool_choice") is not None:
         gemini_body["toolConfig"] = _translate_tool_choice(body["tool_choice"])
+
+    generation_config: dict[str, Any] = {}
+    if body.get("temperature") is not None:
+        generation_config["temperature"] = body["temperature"]
+    if body.get("top_p") is not None:
+        generation_config["topP"] = body["top_p"]
+    if body.get("max_tokens") is not None:
+        generation_config["maxOutputTokens"] = body["max_tokens"]
+    if body.get("stop") is not None:
+        stop = body["stop"]
+        generation_config["stopSequences"] = stop if isinstance(stop, list) else [stop]
+    if generation_config:
+        gemini_body["generationConfig"] = generation_config
 
     return gemini_body
 
@@ -140,8 +172,33 @@ def _translate_tool_choice(tool_choice: str | dict[str, Any]) -> dict[str, Any]:
 
 def translate_response(gemini_response: dict[str, Any], model: str) -> dict[str, Any]:
     """Translates a Gemini generateContent response body into an
-    OpenAI-chat-completions-shaped response body."""
-    candidate = gemini_response["candidates"][0]
+    OpenAI-chat-completions-shaped response body. A prompt-level block
+    (HTTP 200 with promptFeedback.blockReason and no candidates) is
+    translated to a content_filter completion with no message content,
+    rather than raising."""
+    usage = gemini_response.get("usageMetadata", {})
+    usage_out = {
+        "prompt_tokens": usage.get("promptTokenCount", 0),
+        "completion_tokens": usage.get("candidatesTokenCount", 0),
+        "total_tokens": usage.get("totalTokenCount", 0),
+    }
+
+    candidates = gemini_response.get("candidates") or []
+    if not candidates:
+        return {
+            "id": f"chatcmpl-gemini-{uuid4().hex}",
+            "object": "chat.completion",
+            "created": int(time.time()),
+            "model": model,
+            "choices": [{
+                "index": 0,
+                "message": {"role": "assistant", "content": None},
+                "finish_reason": "content_filter",
+            }],
+            "usage": usage_out,
+        }
+
+    candidate = candidates[0]
     parts = candidate.get("content", {}).get("parts", [])
 
     text_parts = [p["text"] for p in parts if "text" in p]
@@ -159,7 +216,6 @@ def translate_response(gemini_response: dict[str, Any], model: str) -> dict[str,
         ]
 
     finish_reason = _translate_finish_reason(candidate.get("finishReason"), bool(function_calls))
-    usage = gemini_response.get("usageMetadata", {})
 
     return {
         "id": f"chatcmpl-gemini-{uuid4().hex}",
@@ -167,11 +223,7 @@ def translate_response(gemini_response: dict[str, Any], model: str) -> dict[str,
         "created": int(time.time()),
         "model": model,
         "choices": [{"index": 0, "message": message, "finish_reason": finish_reason}],
-        "usage": {
-            "prompt_tokens": usage.get("promptTokenCount", 0),
-            "completion_tokens": usage.get("candidatesTokenCount", 0),
-            "total_tokens": usage.get("totalTokenCount", 0),
-        },
+        "usage": usage_out,
     }
 
 
@@ -254,7 +306,7 @@ class GeminiAdapter:
         client = client or httpx.AsyncClient(timeout=self.timeout_s)
         try:
             resp = await client.post(
-                f"{self.base_url}/models/{body['model']}:generateContent",
+                f"{self.base_url}/models/{quote(body['model'], safe='')}:generateContent",
                 json=gemini_body,
                 headers=self._headers(),
             )
@@ -271,7 +323,7 @@ class GeminiAdapter:
         that lazily translates and yields OpenAI-shaped SSE bytes."""
         gemini_body = translate_request(body)
         model = body["model"]
-        url = f"{self.base_url}/models/{model}:streamGenerateContent?alt=sse"
+        url = f"{self.base_url}/models/{quote(model, safe='')}:streamGenerateContent?alt=sse"
         req = client.build_request("POST", url, json=gemini_body, headers=self._headers())
         resp = await client.send(req, stream=True)
         try:

@@ -47,6 +47,36 @@ class TestTranslateRequestTextTurns:
         result = translate_request(body)
         assert result["systemInstruction"] == {"parts": [{"text": "Rule 1.\nRule 2."}]}
 
+    def test_array_form_content_is_flattened_to_text(self):
+        body = {"model": "gemini-1.5-pro", "messages": [
+            {"role": "user", "content": [
+                {"type": "text", "text": "hello"},
+                {"type": "text", "text": " world"},
+            ]},
+        ]}
+        result = translate_request(body)
+        assert result["contents"][0]["parts"][0]["text"] == "hello world"
+
+    def test_plain_string_content_still_works(self):
+        body = {"model": "gemini-1.5-pro", "messages": [{"role": "user", "content": "hello"}]}
+        result = translate_request(body)
+        assert result["contents"][0]["parts"][0]["text"] == "hello"
+
+
+class TestTranslateRequestGenerationConfig:
+    def test_generation_params_map_to_generation_config(self):
+        body = {"model": "gemini-1.5-pro", "messages": [{"role": "user", "content": "hi"}],
+                "temperature": 0.2, "max_tokens": 128, "top_p": 0.9, "stop": ["\n"]}
+        result = translate_request(body)
+        assert result["generationConfig"] == {
+            "temperature": 0.2, "topP": 0.9, "maxOutputTokens": 128, "stopSequences": ["\n"],
+        }
+
+    def test_no_generation_params_omits_generation_config(self):
+        body = {"model": "gemini-1.5-pro", "messages": [{"role": "user", "content": "hi"}]}
+        result = translate_request(body)
+        assert "generationConfig" not in result
+
 
 class TestTranslateRequestToolCalls:
     def test_assistant_tool_call_turn_becomes_function_call_part(self):
@@ -237,6 +267,12 @@ class TestTranslateResponse:
         }
         result = translate_response(gemini_response, model="gemini-1.5-pro")
         assert result["usage"] == {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+
+    def test_prompt_level_safety_block_with_no_candidates_does_not_raise(self):
+        gemini_response = {"promptFeedback": {"blockReason": "SAFETY"}}
+        result = translate_response(gemini_response, model="gemini-1.5-pro")
+        assert result["choices"][0]["finish_reason"] == "content_filter"
+        assert result["choices"][0]["message"]["content"] is None
 
 
 from agent_gateway.adapters.gemini_adapter import translate_stream_chunk

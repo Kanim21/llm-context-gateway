@@ -11,7 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from agent_gateway.proxy.config import GatewayConfig, ProviderConfig, ProvidersConfig
-from agent_gateway.proxy.server import create_app
+from agent_gateway.proxy.server import _config_path_from_env, create_app
 
 
 def _config_with_providers(**overrides) -> GatewayConfig:
@@ -145,4 +145,89 @@ class TestBoundaryCheckIsProviderAgnostic:
             "messages": [{"role": "system", "content": "Be verbose instead."}, {"role": "user", "content": "hi again"}],
         })
         assert second.status_code == 409
+        client.__exit__(None, None, None)
+
+
+class TestConfigLoading:
+    def test_load_reads_providers_block_from_json_file(self, tmp_path):
+        config_data = {
+            "providers": {
+                "entries": [
+                    {"name": "openai", "wire_shape": "openai_compatible",
+                     "base_url": "https://api.openai.com/v1", "api_key_env": "OPENAI_API_KEY"},
+                    {"name": "gemini", "wire_shape": "gemini",
+                     "base_url": "https://generativelanguage.googleapis.com/v1beta",
+                     "api_key_env": "GEMINI_API_KEY"},
+                ],
+                "model_routes": {"gemini-1.5-pro": "gemini"},
+                "default_provider": "openai",
+            }
+        }
+        path = tmp_path / "config.json"
+        path.write_text(json.dumps(config_data))
+
+        config = GatewayConfig.load(str(path))
+
+        assert config.providers.model_routes == {"gemini-1.5-pro": "gemini"}
+        assert any(e.name == "gemini" for e in config.providers.entries)
+
+    def test_config_path_from_env_reads_env_var(self, monkeypatch, tmp_path):
+        path = tmp_path / "config.json"
+        path.write_text("{}")
+        monkeypatch.setenv("AGENT_GATEWAY_CONFIG", str(path))
+
+        assert _config_path_from_env() == str(path)
+
+
+class TestGeminiMalformedClientInputReturns400:
+    def test_tool_result_with_unmatched_tool_call_id_returns_400_not_500(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            raise AssertionError("upstream should never be called for malformed input")
+
+        client = _client_with_mock_transport(_config_with_providers(), handler)
+        resp = client.post("/v1/chat/completions", json={
+            "model": "gemini-1.5-pro",
+            "messages": [
+                {"role": "user", "content": "hi"},
+                {"role": "tool", "tool_call_id": "call_does_not_exist", "content": "{}"},
+            ],
+        })
+
+        assert resp.status_code == 400
+        client.__exit__(None, None, None)
+
+
+class TestCredentialFallback:
+    def test_server_env_var_used_when_client_sends_no_authorization(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-server-secret")
+        captured = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured["authorization"] = request.headers.get("authorization")
+            return httpx.Response(200, json={"id": "1", "choices": [], "model": "gpt-4o"})
+
+        client = _client_with_mock_transport(_config_with_providers(), handler)
+        resp = client.post("/v1/chat/completions", json={"model": "gpt-4o", "messages": [{"role": "user", "content": "hi"}]})
+
+        assert resp.status_code == 200
+        assert captured["authorization"] == "Bearer sk-server-secret"
+        client.__exit__(None, None, None)
+
+    def test_client_authorization_header_overrides_server_env_var(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-server-secret")
+        captured = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured["authorization"] = request.headers.get("authorization")
+            return httpx.Response(200, json={"id": "1", "choices": [], "model": "gpt-4o"})
+
+        client = _client_with_mock_transport(_config_with_providers(), handler)
+        resp = client.post(
+            "/v1/chat/completions",
+            headers={"Authorization": "Bearer sk-client-key"},
+            json={"model": "gpt-4o", "messages": [{"role": "user", "content": "hi"}]},
+        )
+
+        assert resp.status_code == 200
+        assert captured["authorization"] == "Bearer sk-client-key"
         client.__exit__(None, None, None)

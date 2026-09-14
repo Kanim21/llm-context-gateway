@@ -41,10 +41,12 @@ agent_gateway/
     tool_pruning.py           # fail-open tool schema pruning
     semantic_dedup.py         # Jaccard-shingle near-duplicate detection
     branch_collapse.py        # collapsing abandoned exploration branches
+    provider_routing.py       # ProviderRegistry.resolve() + credential resolution
     vocab/claude-bpe-tokenizer.json  # bundled offline Claude BPE vocab
   adapters/
     openai_adapter.py        # async relay to /v1/chat/completions
     anthropic_adapter.py     # async relay to /v1/messages, ephemeral cache_control
+    gemini_adapter.py        # OpenAI<->Gemini generateContent translation + I/O
   proxy/
     server.py                # FastAPI app: /v1/chat/completions, /v1/messages, /v1/metrics, /healthz
     config.py                # GatewayConfig (Pydantic), all lossy defaults False
@@ -63,7 +65,9 @@ benchmarks/
   check_regressions.py       # CI guardrail (boundary, round-trip, latency ceilings)
   raw_results.json           # machine-readable output of the last runner.py run
 
-tests/test_agent_gateway.py  # 69 tests across every module
+tests/  # 127 tests: test_agent_gateway.py (core modules) plus
+        # test_provider_routing.py, test_gemini_adapter.py,
+        # test_openai_adapter_streaming.py, test_chat_completions_routing.py
 
 deployment/
   Dockerfile                 # multi-stage, non-root, HEALTHCHECK
@@ -86,6 +90,42 @@ export OPENAI_API_KEY=...
 export ANTHROPIC_API_KEY=...
 uvicorn agent_gateway.proxy.server:app --host 0.0.0.0 --port 8080
 ```
+
+> **Credential fallback:** if an incoming request carries no `Authorization`
+> header, the gateway falls back to the server-side env var configured for
+> the resolved provider (`OPENAI_API_KEY`, `DEEPSEEK_API_KEY`,
+> `GEMINI_API_KEY`) before giving up. The gateway performs no authentication
+> of its own — anyone who can reach it can spend those keys. Do not expose
+> it on a network boundary without a reverse proxy or firewall in front of
+> it.
+
+Multi-provider routing (DeepSeek, Gemini, or local OpenAI-compatible
+engines, alongside OpenAI) is configured via a JSON file pointed to by
+`AGENT_GATEWAY_CONFIG`:
+
+```json
+{
+  "providers": {
+    "entries": [
+      {"name": "openai", "wire_shape": "openai_compatible", "base_url": "https://api.openai.com/v1", "api_key_env": "OPENAI_API_KEY"},
+      {"name": "deepseek", "wire_shape": "openai_compatible", "base_url": "https://api.deepseek.com/v1", "api_key_env": "DEEPSEEK_API_KEY"},
+      {"name": "gemini", "wire_shape": "gemini", "base_url": "https://generativelanguage.googleapis.com/v1beta", "api_key_env": "GEMINI_API_KEY"}
+    ],
+    "model_routes": {"deepseek-chat": "deepseek", "gemini-1.5-pro": "gemini"},
+    "default_provider": "openai"
+  }
+}
+```
+
+```bash
+export AGENT_GATEWAY_CONFIG=/path/to/config.json
+export DEEPSEEK_API_KEY=...
+export GEMINI_API_KEY=...
+uvicorn agent_gateway.proxy.server:app --host 0.0.0.0 --port 8080
+```
+
+A model with no entry in `model_routes` falls back to `default_provider`
+unchanged.
 
 Or via Docker Compose:
 

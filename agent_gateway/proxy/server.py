@@ -13,6 +13,7 @@ module only wires them together and speaks HTTP.
 
 from __future__ import annotations
 
+import os
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -110,6 +111,8 @@ def create_app(config: GatewayConfig | None = None) -> FastAPI:
                 gemini_response = await adapter.generate_content(body, client=gw.http_client)
             except httpx.HTTPStatusError as exc:
                 raise HTTPException(status_code=exc.response.status_code, detail=exc.response.text) from exc
+            except (ValueError, KeyError, TypeError) as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
             return JSONResponse(translate_response(gemini_response, model))
 
         # openai_compatible: openai, deepseek, local engines -- unchanged wire shape
@@ -155,4 +158,8 @@ def create_app(config: GatewayConfig | None = None) -> FastAPI:
     return app
 
 
-app = create_app()
+def _config_path_from_env() -> str | None:
+    return os.environ.get("AGENT_GATEWAY_CONFIG")
+
+
+app = create_app(GatewayConfig.load(_config_path_from_env()))
