@@ -19,6 +19,26 @@ class TestOrchestratorWiring:
             assert gw.event_bus is not None
             assert gw.playbook_runner is not None
 
+    def test_cors_allows_the_frontend_dev_origin(self):
+        """Without this the Next.js dev server on :3000 can't call the API at
+        all -- every fetch and EventSource dies on preflight."""
+        app = create_app(GatewayConfig())
+        with TestClient(app) as client:
+            resp = client.get("/v1/playbooks", headers={"Origin": "http://localhost:3000"})
+            assert resp.status_code == 200
+            assert resp.headers["access-control-allow-origin"] == "http://localhost:3000"
+
+    def test_cors_preflight_is_answered(self):
+        app = create_app(GatewayConfig())
+        with TestClient(app) as client:
+            resp = client.options("/v1/playbooks", headers={
+                "Origin": "http://localhost:3000",
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "content-type",
+            })
+            assert resp.status_code == 200
+            assert resp.headers["access-control-allow-origin"] == "http://localhost:3000"
+
     def test_templates_are_seeded_on_startup(self):
         app = create_app(GatewayConfig())
         with TestClient(app) as client:

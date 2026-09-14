@@ -19,6 +19,7 @@ from typing import Any
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from agent_gateway.adapters.anthropic_adapter import AnthropicAdapter
@@ -86,6 +87,17 @@ def create_app(config: GatewayConfig | None = None) -> FastAPI:
             await app.state.gateway.aclose()
 
     app = FastAPI(title="Agent Gateway", version="2.0.0", lifespan=lifespan)
+
+    # Local-first, no-auth v1: the Next.js dev server on :3000 is the only
+    # browser origin that talks to this API. Without this, every fetch and
+    # EventSource from the frontend fails on preflight.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:3000"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
     app.include_router(build_router())
 
     @app.get("/healthz")
