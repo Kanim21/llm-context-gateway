@@ -223,6 +223,17 @@ class TestPlaybookRunnerGate:
         run = store.get_run(run_id)
         assert run["status"] == "completed"
 
+    async def test_edit_propagates_to_downstream_prompt(self):
+        from agent_gateway.orchestrator.engine import assemble_prompt
+        runner, playbook, store = await self._runner()
+        run_id = await runner.start_run(playbook, "New lead")
+        await runner.resume_with_decision(playbook, run_id, "edit",
+                                           edited_output={"text": "Edited qualification note"})
+        run = store.get_run(run_id)
+        prompt = assemble_prompt(store, run=run, steps=playbook.steps, step_index=2)
+        assert "Edited qualification note" in prompt
+        assert "Qualified: yes" not in prompt
+
     async def test_reject_stops_run_without_advancing(self):
         runner, playbook, store = await self._runner()
         run_id = await runner.start_run(playbook, "New lead")
@@ -231,3 +242,5 @@ class TestPlaybookRunnerGate:
         assert run["status"] == "rejected"
         gate_record = store.get_step_record(run_id, 1)
         assert gate_record["status"] == "rejected"
+        t2_record = store.get_step_record(run_id, 2)
+        assert t2_record["status"] == "pending"

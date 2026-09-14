@@ -141,6 +141,12 @@ class PlaybookRunner:
                 return record["output_json"] or {"text": ""}
         return {"text": ""}
 
+    def _previous_step_record(self, run_id: str, gate_index: int) -> dict | None:
+        for record in reversed(self.store.list_step_records(run_id)):
+            if record["step_index"] < gate_index and record["status"] == "completed":
+                return record
+        return None
+
     async def resume_with_decision(self, playbook: Playbook, run_id: str, decision: str,
                                     edited_output: dict | None = None) -> None:
         run = self.store.get_run(run_id)
@@ -156,10 +162,13 @@ class PlaybookRunner:
             return
 
         output_json = edited_output if decision == "edit" else None
-        if output_json is not None:
-            self.store.update_step_record(record["id"], status="completed",
-                                           output_json=output_json, completed_at=_now())
-        else:
-            self.store.update_step_record(record["id"], status="completed", completed_at=_now())
+        self.store.update_step_record(record["id"], status="completed",
+                                       output_json=output_json, completed_at=_now())
+
+        # Propagate edited output to the preceding step's record so downstream prompts see it
+        if decision == "edit" and edited_output is not None:
+            prev_record = self._previous_step_record(run_id, index)
+            if prev_record is not None:
+                self.store.update_step_record(prev_record["id"], output_json=edited_output)
 
         await self._complete_step_and_continue(playbook, run_id, index)
