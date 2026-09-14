@@ -18,9 +18,10 @@ from typing import Any
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from agent_gateway.adapters.anthropic_adapter import AnthropicAdapter
+from agent_gateway.adapters.gemini_adapter import GeminiAdapter, translate_response
 from agent_gateway.adapters.openai_adapter import OpenAIAdapter
 from agent_gateway.core.cache_boundary import (
     BoundaryGuard,
@@ -28,6 +29,7 @@ from agent_gateway.core.cache_boundary import (
     TokenizerEngine,
 )
 from agent_gateway.core.guardrails import GuardrailViolation
+from agent_gateway.core.provider_routing import ProviderRegistry, resolve_credential
 from agent_gateway.proxy.config import GatewayConfig
 from agent_gateway.proxy.metrics import MetricsAccumulator
 from agent_gateway.storage.sqlite_store import SqliteStore
@@ -40,7 +42,7 @@ class GatewayState:
         self.tokenizer_engine = TokenizerEngine()
         self.boundary_guard = BoundaryGuard()
         self.metrics = MetricsAccumulator()
-        self.openai_adapter = OpenAIAdapter(base_url=config.upstream.openai_base_url)
+        self.provider_registry = ProviderRegistry(config.providers)
         self.anthropic_adapter = AnthropicAdapter(base_url=config.upstream.anthropic_base_url)
         self.http_client = httpx.AsyncClient(timeout=config.upstream.request_timeout_s)
 
@@ -73,8 +75,8 @@ def create_app(config: GatewayConfig | None = None) -> FastAPI:
         unblended["storage"] = gw.store.artifact_stats()
         return unblended
 
-    @app.post("/v1/chat/completions")
-    async def chat_completions(request: Request) -> JSONResponse:
+    @app.post("/v1/chat/completions", response_model=None)
+    async def chat_completions(request: Request) -> JSONResponse | StreamingResponse:
         gw: GatewayState = request.app.state.gateway
         body = await request.json()
         conversation_id = request.headers.get("x-conversation-id", "default")
@@ -87,9 +89,38 @@ def create_app(config: GatewayConfig | None = None) -> FastAPI:
         except CachePrefixMutationError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 
-        api_key = request.headers.get("authorization", "").removeprefix("Bearer ").strip() or None
-        adapter = OpenAIAdapter(base_url=gw.config.upstream.openai_base_url, api_key=api_key)
+        model = body.get("model", "")
         try:
+            provider = gw.provider_registry.resolve(model)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        api_key = resolve_credential(provider, dict(request.headers))
+        stream = bool(body.get("stream"))
+
+        if provider.wire_shape == "gemini":
+            gemini_kwargs = {"base_url": provider.base_url, "api_key": api_key}
+            if provider.api_key_header:
+                gemini_kwargs["api_key_header"] = provider.api_key_header
+            adapter = GeminiAdapter(**gemini_kwargs)
+            try:
+                if stream:
+                    gen = await adapter.stream_generate_content(body, client=gw.http_client)
+                    return StreamingResponse(gen, media_type="text/event-stream")
+                gemini_response = await adapter.generate_content(body, client=gw.http_client)
+            except httpx.HTTPStatusError as exc:
+                raise HTTPException(status_code=exc.response.status_code, detail=exc.response.text) from exc
+            return JSONResponse(translate_response(gemini_response, model))
+
+        # openai_compatible: openai, deepseek, local engines -- unchanged wire shape
+        openai_kwargs = {"base_url": provider.base_url, "api_key": api_key}
+        if provider.api_key_header:
+            openai_kwargs["api_key_header"] = provider.api_key_header
+        adapter = OpenAIAdapter(**openai_kwargs)
+        try:
+            if stream:
+                gen = await adapter.stream_chat_completions(body, client=gw.http_client)
+                return StreamingResponse(gen, media_type="text/event-stream")
             result = await adapter.chat_completions(body, client=gw.http_client)
         except httpx.HTTPStatusError as exc:
             raise HTTPException(status_code=exc.response.status_code, detail=exc.response.text) from exc
