@@ -57,6 +57,21 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+VALID_DECISIONS: tuple[str, ...] = ("approve", "edit", "reject")
+
+
+class InvalidDecisionError(ValueError):
+    """The decision string isn't one of approve/edit/reject.
+
+    Anything unrecognised used to fall through to the approve path, which
+    silently defeated the whole point of a human-in-the-loop gate.
+    """
+
+
+class RunStateError(ValueError):
+    """The run isn't sitting at an approval gate waiting for a decision."""
+
+
 class CompletionFn(Protocol):
     async def __call__(self, *, model: str, prompt: str, on_token) -> str: ...
 
@@ -155,9 +170,26 @@ class PlaybookRunner:
 
     async def resume_with_decision(self, playbook: Playbook, run_id: str, decision: str,
                                     edited_output: dict | None = None) -> None:
+        if decision not in VALID_DECISIONS:
+            raise InvalidDecisionError(
+                f"Unknown decision {decision!r}; expected one of {', '.join(VALID_DECISIONS)}"
+            )
+
         run = self.store.get_run(run_id)
+        if run is None:
+            raise RunStateError(f"Run {run_id} not found")
+        if run["status"] != "paused":
+            raise RunStateError(
+                f"Run {run_id} is not awaiting a gate decision (status={run['status']})"
+            )
+
         index = run["current_step_index"]
+        if index >= len(playbook.steps) or playbook.steps[index].type != "approval_gate":
+            raise RunStateError(f"Step {index} is not an approval gate")
+
         record = self.store.get_step_record(run_id, index)
+        if record is None:
+            raise RunStateError(f"Run {run_id} has no step record at index {index}")
 
         self.store.record_gate_decision(id=new_id("gd"), run_id=run_id, step_index=index,
                                          decision=decision, edited_output_json=edited_output)

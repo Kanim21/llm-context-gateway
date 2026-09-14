@@ -135,6 +135,77 @@ class TestRunLifecycleAndSSETermination:
                 assert b"gate_paused" in body
 
 
+_GATED_CANVAS = {
+    "nodes": [
+        {"id": "start", "type": "start", "data": {}},
+        {"id": "g1", "type": "approval_gate", "data": {"label": "Review"}},
+        {"id": "t2", "type": "teammate", "data": {"role": "R", "objective": "O", "tier": "speed"}},
+        {"id": "end", "type": "end", "data": {}},
+    ],
+    "edges": [
+        {"source": "start", "target": "g1"}, {"source": "g1", "target": "t2"},
+        {"source": "t2", "target": "end"},
+    ],
+}
+
+
+class TestRequestValidation:
+    async def test_create_playbook_missing_name_returns_422_not_500(self):
+        async with _client() as client:
+            resp = await client.post("/v1/playbooks", json={"canvas_json": {"nodes": [], "edges": []}})
+            assert resp.status_code == 422
+
+    async def test_create_run_missing_input_returns_422(self):
+        async with _client() as client:
+            create_resp = await client.post("/v1/playbooks",
+                                             json={"name": "P", "canvas_json": _GATED_CANVAS})
+            playbook_id = create_resp.json()["id"]
+            resp = await client.post(f"/v1/playbooks/{playbook_id}/runs", json={})
+            assert resp.status_code == 422
+
+    async def test_unknown_decision_is_rejected_and_run_stays_paused(self):
+        """The fail-open bug: any unrecognised decision string used to take the
+        approve path and complete the run."""
+        async with _client() as client:
+            create_resp = await client.post("/v1/playbooks",
+                                             json={"name": "Gated", "canvas_json": _GATED_CANVAS})
+            playbook_id = create_resp.json()["id"]
+            run_resp = await client.post(f"/v1/playbooks/{playbook_id}/runs",
+                                          json={"input": {"text": "hi"}})
+            run_id = run_resp.json()["id"]
+            assert run_resp.json()["status"] == "paused"
+
+            resp = await client.post(f"/v1/playbooks/runs/{run_id}/gate",
+                                      json={"decision": "banana"})
+            assert resp.status_code == 422
+
+            snapshot = await client.get(f"/v1/playbooks/runs/{run_id}")
+            assert snapshot.json()["status"] == "paused"
+
+
+class TestGateDoubleSubmit:
+    async def test_second_decision_returns_409_and_leaves_terminal_state(self):
+        async with _client() as client:
+            create_resp = await client.post("/v1/playbooks",
+                                             json={"name": "Gated", "canvas_json": _GATED_CANVAS})
+            playbook_id = create_resp.json()["id"]
+            run_resp = await client.post(f"/v1/playbooks/{playbook_id}/runs",
+                                          json={"input": {"text": "hi"}})
+            run_id = run_resp.json()["id"]
+
+            first = await client.post(f"/v1/playbooks/runs/{run_id}/gate",
+                                       json={"decision": "approve"})
+            assert first.status_code == 200
+            assert first.json()["status"] == "completed"
+
+            second = await client.post(f"/v1/playbooks/runs/{run_id}/gate",
+                                        json={"decision": "reject"})
+            assert second.status_code == 409
+
+            snapshot = await client.get(f"/v1/playbooks/runs/{run_id}")
+            assert snapshot.json()["status"] == "completed"
+
+
 class TestGateDecision:
     async def test_submit_approve_decision_resumes_run(self):
         canvas = {

@@ -181,6 +181,21 @@ def _playbook_with_gate():
     return compile_canvas(canvas, playbook_id="pb_gate", name="Gated")
 
 
+def _gate_runner():
+    store = _make_store()
+    playbook = _playbook_with_gate()
+    store.upsert_playbook(id=playbook.id, name=playbook.name, description="",
+                           schema_version=1, definition_json=playbook.model_dump(), canvas_json={})
+    from agent_gateway.orchestrator.engine import PlaybookRunner
+    runner = PlaybookRunner(
+        store=store, events=EventBus(),
+        tier_models={"speed": "gpt-4o-mini", "balanced": "gpt-4o", "brain": "gemini-1.5-pro"},
+        blackboard_store=SqliteStore(":memory:"),
+        complete=FakeCompletionFn({"gpt-4o-mini": "Qualified: yes"}),
+    )
+    return runner, playbook, store
+
+
 class TestPlaybookRunnerGate:
     async def _runner(self):
         store = _make_store()
@@ -244,6 +259,50 @@ class TestPlaybookRunnerGate:
         assert gate_record["status"] == "rejected"
         t2_record = store.get_step_record(run_id, 2)
         assert t2_record["status"] == "pending"
+
+
+class TestGateDecisionGuards:
+    async def test_unknown_decision_raises_and_leaves_run_paused(self):
+        """Previously any string that wasn't "reject"/"edit" fell through to
+        the approve path, which defeated the point of the gate."""
+        import pytest
+        from agent_gateway.orchestrator.engine import InvalidDecisionError
+
+        runner, playbook, store = _gate_runner()
+        run_id = await runner.start_run(playbook, "New lead")
+
+        with pytest.raises(InvalidDecisionError):
+            await runner.resume_with_decision(playbook, run_id, "banana")
+
+        run = store.get_run(run_id)
+        assert run["status"] == "paused"
+        assert store.get_step_record(run_id, 1)["status"] == "awaiting_approval"
+
+    async def test_second_decision_on_a_finished_run_raises_run_state_error(self):
+        import pytest
+        from agent_gateway.orchestrator.engine import RunStateError
+
+        runner, playbook, store = _gate_runner()
+        run_id = await runner.start_run(playbook, "New lead")
+        await runner.resume_with_decision(playbook, run_id, "approve")
+        assert store.get_run(run_id)["status"] == "completed"
+
+        with pytest.raises(RunStateError):
+            await runner.resume_with_decision(playbook, run_id, "reject")
+
+        assert store.get_run(run_id)["status"] == "completed"
+
+    async def test_decision_on_a_running_non_gate_step_raises(self):
+        import pytest
+        from agent_gateway.orchestrator.engine import RunStateError
+
+        runner, playbook, store = _gate_runner()
+        run_id = await runner.start_run(playbook, "New lead")
+        # Force the run back to a non-gate step while still "paused".
+        store.update_run_status(run_id, "paused", current_step_index=0)
+
+        with pytest.raises(RunStateError):
+            await runner.resume_with_decision(playbook, run_id, "approve")
 
 
 class TestCrashRecovery:

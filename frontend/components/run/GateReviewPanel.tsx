@@ -13,32 +13,38 @@ interface GateReviewPanelProps {
 
 export function GateReviewPanel({ runId, label, allowEdit, proposedOutput, onDecided }: GateReviewPanelProps) {
   const [editedText, setEditedText] = useState(proposedOutput.text);
+  // A double-click used to fire two decisions; the second one now gets a 409
+  // from the backend, but it shouldn't leave the button clickable either.
+  const [submitting, setSubmitting] = useState(false);
 
-  const approve = async () => {
-    await api.submitGateDecision(runId, { decision: "approve" });
-    onDecided();
-  };
-  const reject = async () => {
-    await api.submitGateDecision(runId, { decision: "reject" });
-    onDecided();
-  };
-  const saveEdit = async () => {
-    await api.submitGateDecision(runId, { decision: "edit", edited_output: { text: editedText } });
-    onDecided();
+  const submit = async (decision: "approve" | "reject" | "edit") => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await api.submitGateDecision(
+        runId,
+        decision === "edit"
+          ? { decision: "edit", edited_output: { text: editedText } }
+          : { decision },
+      );
+      onDecided();
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <div>
       <h3>{label}</h3>
       <p>{proposedOutput.text}</p>
-      <button onClick={approve}>Approve</button>
-      <button onClick={reject}>Reject</button>
+      <button onClick={() => submit("approve")} disabled={submitting}>Approve</button>
+      <button onClick={() => submit("reject")} disabled={submitting}>Reject</button>
       {allowEdit && (
         <div>
           <label htmlFor="edit-output">Edit output</label>
           <textarea id="edit-output" aria-label="Edit output" value={editedText}
                     onChange={(e) => setEditedText(e.target.value)} />
-          <button onClick={saveEdit}>Save Edit</button>
+          <button onClick={() => submit("edit")} disabled={submitting}>Save Edit</button>
         </div>
       )}
     </div>
