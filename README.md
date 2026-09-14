@@ -65,7 +65,7 @@ benchmarks/
   check_regressions.py       # CI guardrail (boundary, round-trip, latency ceilings)
   raw_results.json           # machine-readable output of the last runner.py run
 
-tests/  # 127 tests: test_agent_gateway.py (core modules) plus
+tests/  # 137 tests: test_agent_gateway.py (core modules) plus
         # test_provider_routing.py, test_gemini_adapter.py,
         # test_openai_adapter_streaming.py, test_chat_completions_routing.py
 
