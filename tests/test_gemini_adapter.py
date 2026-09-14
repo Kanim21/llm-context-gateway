@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+import httpx
 import pytest
 
 from agent_gateway.adapters.gemini_adapter import _sanitize_json_schema, translate_request
@@ -281,3 +282,115 @@ class TestTranslateStreamChunk:
             assert chunk["id"] == self.CHUNK_ID
             assert chunk["model"] == self.MODEL
             assert chunk["created"] == self.CREATED
+
+
+from agent_gateway.adapters.gemini_adapter import GeminiAdapter
+
+
+class TestGeminiAdapterGenerateContent:
+    async def test_generate_content_posts_translated_body_and_returns_raw_response(self):
+        captured = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured["url"] = str(request.url)
+            captured["headers"] = dict(request.headers)
+            captured["body"] = json.loads(request.content)
+            return httpx.Response(200, json={
+                "candidates": [{"content": {"parts": [{"text": "hi"}]}, "finishReason": "STOP"}],
+                "usageMetadata": {},
+            })
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        adapter = GeminiAdapter(base_url="https://generativelanguage.googleapis.com/v1beta", api_key="gm-key")
+        body = {"model": "gemini-1.5-pro", "messages": [{"role": "user", "content": "hi"}]}
+
+        result = await adapter.generate_content(body, client=client)
+
+        assert "models/gemini-1.5-pro:generateContent" in captured["url"]
+        assert captured["headers"]["x-goog-api-key"] == "gm-key"
+        assert captured["body"]["contents"] == [{"role": "user", "parts": [{"text": "hi"}]}]
+        assert result["candidates"][0]["content"]["parts"][0]["text"] == "hi"
+
+        await client.aclose()
+
+    async def test_generate_content_respects_custom_api_key_header(self):
+        captured = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured["headers"] = dict(request.headers)
+            return httpx.Response(200, json={
+                "candidates": [{"content": {"parts": [{"text": "hi"}]}, "finishReason": "STOP"}],
+                "usageMetadata": {},
+            })
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        adapter = GeminiAdapter(base_url="https://generativelanguage.googleapis.com/v1beta",
+                                 api_key="custom-key", api_key_header="X-Custom-Key")
+        body = {"model": "gemini-1.5-pro", "messages": [{"role": "user", "content": "hi"}]}
+
+        await adapter.generate_content(body, client=client)
+
+        assert captured["headers"]["x-custom-key"] == "custom-key"
+        assert "x-goog-api-key" not in captured["headers"]
+
+        await client.aclose()
+
+    async def test_generate_content_raises_on_http_error(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(401, json={"error": "unauthorized"})
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        adapter = GeminiAdapter(base_url="https://generativelanguage.googleapis.com/v1beta", api_key="bad-key")
+        body = {"model": "gemini-1.5-pro", "messages": [{"role": "user", "content": "hi"}]}
+
+        with pytest.raises(httpx.HTTPStatusError):
+            await adapter.generate_content(body, client=client)
+
+        await client.aclose()
+
+
+class TestGeminiAdapterStreamGenerateContent:
+    async def test_stream_generate_content_yields_translated_sse_ending_in_done(self):
+        sse_body = (
+            'data: {"candidates": [{"content": {"parts": [{"text": "Hel"}]}}]}\n\n'
+            'data: {"candidates": [{"content": {"parts": [{"text": "lo"}]}, "finishReason": "STOP"}]}\n\n'
+        ).encode()
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, content=sse_body,
+                                   headers={"content-type": "text/event-stream"})
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        adapter = GeminiAdapter(base_url="https://generativelanguage.googleapis.com/v1beta", api_key="gm-key")
+        body = {"model": "gemini-1.5-pro", "messages": [{"role": "user", "content": "hi"}], "stream": True}
+
+        gen = await adapter.stream_generate_content(body, client=client)
+        raw_chunks = [chunk async for chunk in gen]
+        text = b"".join(raw_chunks).decode()
+
+        assert text.endswith("data: [DONE]\n\n")
+        assert '"content": "Hel"' in text or '"content":"Hel"' in text
+        # 3, not 2: the second Gemini SSE event bundles text ("lo") with
+        # finishReason="STOP" in one payload, and the already-tested,
+        # frozen translate_stream_chunk() (Tasks 4-7) correctly fans that
+        # out into two separate OpenAI chunks -- a content delta and a
+        # terminal empty-delta finish_reason chunk -- matching real
+        # OpenAI streaming semantics. Combined with the first event's one
+        # content-delta chunk, that's 3 total chat.completion.chunk
+        # objects on the wire.
+        assert text.count("chat.completion.chunk") == 3
+
+        await client.aclose()
+
+    async def test_stream_generate_content_raises_before_yielding_on_http_error(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(401, json={"error": "unauthorized"})
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        adapter = GeminiAdapter(base_url="https://generativelanguage.googleapis.com/v1beta", api_key="bad-key")
+        body = {"model": "gemini-1.5-pro", "messages": [{"role": "user", "content": "hi"}], "stream": True}
+
+        with pytest.raises(httpx.HTTPStatusError):
+            await adapter.stream_generate_content(body, client=client)
+
+        await client.aclose()

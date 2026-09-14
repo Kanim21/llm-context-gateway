@@ -13,8 +13,12 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import AsyncIterator
+from dataclasses import dataclass
 from typing import Any
 from uuid import uuid4
+
+import httpx
 
 
 def translate_request(body: dict[str, Any]) -> dict[str, Any]:
@@ -229,3 +233,80 @@ def _stream_chunk(
         "model": model,
         "choices": [{"index": 0, "delta": delta, "finish_reason": finish_reason}],
     }
+
+
+@dataclass
+class GeminiAdapter:
+    base_url: str = "https://generativelanguage.googleapis.com/v1beta"
+    api_key: str | None = None
+    timeout_s: float = 60.0
+    api_key_header: str = "x-goog-api-key"
+
+    def _headers(self) -> dict[str, str]:
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers[self.api_key_header] = self.api_key
+        return headers
+
+    async def generate_content(self, body: dict[str, Any], client: httpx.AsyncClient | None = None) -> dict[str, Any]:
+        gemini_body = translate_request(body)
+        owns_client = client is None
+        client = client or httpx.AsyncClient(timeout=self.timeout_s)
+        try:
+            resp = await client.post(
+                f"{self.base_url}/models/{body['model']}:generateContent",
+                json=gemini_body,
+                headers=self._headers(),
+            )
+            resp.raise_for_status()
+            return resp.json()
+        finally:
+            if owns_client:
+                await client.aclose()
+
+    async def stream_generate_content(self, body: dict[str, Any], client: httpx.AsyncClient) -> AsyncIterator[bytes]:
+        """Opens the upstream Gemini stream, checks its status eagerly
+        (so an upstream error raises here rather than after the client
+        has already received a 200), then returns an async generator
+        that lazily translates and yields OpenAI-shaped SSE bytes."""
+        gemini_body = translate_request(body)
+        model = body["model"]
+        url = f"{self.base_url}/models/{model}:streamGenerateContent?alt=sse"
+        req = client.build_request("POST", url, json=gemini_body, headers=self._headers())
+        resp = await client.send(req, stream=True)
+        try:
+            resp.raise_for_status()
+        except httpx.HTTPStatusError:
+            await resp.aread()
+            await resp.aclose()
+            raise
+
+        chunk_id = f"chatcmpl-gemini-{uuid4().hex}"
+        created = int(time.time())
+
+        async def _iter() -> AsyncIterator[bytes]:
+            try:
+                async for event in _iter_sse_json_events(resp):
+                    for oa_chunk in translate_stream_chunk(event, chunk_id=chunk_id, model=model, created=created):
+                        yield f"data: {json.dumps(oa_chunk)}\n\n".encode()
+                yield b"data: [DONE]\n\n"
+            finally:
+                await resp.aclose()
+
+        return _iter()
+
+
+async def _iter_sse_json_events(resp: httpx.Response) -> AsyncIterator[dict[str, Any]]:
+    """Parses a Gemini `alt=sse` response body into decoded JSON event
+    dicts, one per `data: ` line."""
+    buffer_lines: list[str] = []
+    async for line in resp.aiter_lines():
+        if line == "":
+            if buffer_lines:
+                payload = "\n".join(buffer_lines)
+                buffer_lines = []
+                yield json.loads(payload.removeprefix("data: "))
+            continue
+        buffer_lines.append(line)
+    if buffer_lines:
+        yield json.loads("\n".join(buffer_lines).removeprefix("data: "))
