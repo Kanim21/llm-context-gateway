@@ -244,3 +244,54 @@ class TestPlaybookRunnerGate:
         assert gate_record["status"] == "rejected"
         t2_record = store.get_step_record(run_id, 2)
         assert t2_record["status"] == "pending"
+
+
+class TestCrashRecovery:
+    async def test_interrupted_running_step_is_reset_to_pending_then_completed(self):
+        store = _make_store()
+        playbook = _linear_playbook()
+        store.upsert_playbook(id=playbook.id, name=playbook.name, description="",
+                               schema_version=1, definition_json=playbook.model_dump(), canvas_json={})
+
+        # Simulate a crash mid-step: run row says "running" at index 0, but the step
+        # record was left "running" (never marked completed/failed) rather than "pending".
+        store.create_run(id="run_crash", playbook_id=playbook.id, input_text="New lead")
+        store.create_step_record(id="rec_0", run_id="run_crash", step_index=0, step_id="t1")
+        store.update_step_record("rec_0", status="running", started_at="2026-09-14T00:00:00+00:00")
+        store.create_step_record(id="rec_1", run_id="run_crash", step_index=1, step_id="t2")
+
+        from agent_gateway.orchestrator.engine import PlaybookRunner
+        fake_complete = FakeCompletionFn({"gpt-4o-mini": "Qualified: yes"})
+        runner = PlaybookRunner(
+            store=store, events=EventBus(),
+            tier_models={"speed": "gpt-4o-mini", "balanced": "gpt-4o", "brain": "gemini-1.5-pro"},
+            blackboard_store=SqliteStore(":memory:"), complete=fake_complete,
+        )
+
+        await runner.recover_interrupted_runs({playbook.id: playbook})
+
+        run = store.get_run("run_crash")
+        assert run["status"] == "completed"
+        records = store.list_step_records("run_crash")
+        assert [r["status"] for r in records] == ["completed", "completed"]
+
+    async def test_paused_run_awaiting_approval_is_left_untouched(self):
+        store = _make_store()
+        playbook = _linear_playbook()
+        store.upsert_playbook(id=playbook.id, name=playbook.name, description="",
+                               schema_version=1, definition_json=playbook.model_dump(), canvas_json={})
+        store.create_run(id="run_paused", playbook_id=playbook.id, input_text="hi")
+        store.update_run_status("run_paused", "paused", current_step_index=0)
+        store.create_step_record(id="rec_0", run_id="run_paused", step_index=0, step_id="t1")
+        store.update_step_record("rec_0", status="awaiting_approval")
+
+        from agent_gateway.orchestrator.engine import PlaybookRunner
+        runner = PlaybookRunner(
+            store=store, events=EventBus(), tier_models={"speed": "m"},
+            blackboard_store=SqliteStore(":memory:"), complete=FakeCompletionFn({}),
+        )
+
+        await runner.recover_interrupted_runs({playbook.id: playbook})
+
+        record = store.get_step_record("run_paused", 0)
+        assert record["status"] == "awaiting_approval"  # untouched, not reset

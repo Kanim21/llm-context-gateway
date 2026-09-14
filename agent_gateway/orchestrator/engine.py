@@ -172,3 +172,14 @@ class PlaybookRunner:
                 self.store.update_step_record(prev_record["id"], output_json=edited_output)
 
         await self._complete_step_and_continue(playbook, run_id, index)
+
+    async def recover_interrupted_runs(self, playbooks_by_id: dict[str, Playbook]) -> None:
+        for run in self.store.list_runs_by_status("running"):
+            playbook = playbooks_by_id.get(run["playbook_id"])
+            if playbook is None:
+                continue
+            index = run["current_step_index"]
+            record = self.store.get_step_record(run["id"], index)
+            if record is not None and record["status"] == "running":
+                self.store.reset_step_to_pending(run["id"], index)
+            await self._advance(playbook, run["id"])
