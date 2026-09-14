@@ -30,7 +30,7 @@ def compile_canvas(
     if len(start_nodes) != 1:
         errors.append({"node_id": "", "message": "A playbook needs exactly one starting point."})
 
-    # Detect cycles using DFS
+    # Detect cycles using DFS from all nodes (not just start-reachable component)
     def has_cycle_dfs(node_id: str, visited: set[str], rec_stack: set[str]) -> bool:
         visited.add(node_id)
         rec_stack.add(node_id)
@@ -47,15 +47,21 @@ def compile_canvas(
 
     visited_dfs: set[str] = set()
     has_cycle_flag = False
-    if start_nodes:
-        has_cycle_flag = has_cycle_dfs(start_nodes[0]["id"], visited_dfs, set())
-        if has_cycle_flag:
-            errors.append({
-                "node_id": "",
-                "message": "This playbook loops back on itself — playbooks run start to finish, once.",
-            })
+    # Check all nodes for cycles (not just start-reachable component)
+    for node_id in nodes:
+        if node_id not in visited_dfs:
+            if has_cycle_dfs(node_id, visited_dfs, set()):
+                has_cycle_flag = True
+                break
+
+    if has_cycle_flag:
+        errors.append({
+            "node_id": "",
+            "message": "This playbook loops back on itself — playbooks run start to finish, once.",
+        })
 
     # Build visited_order for linear traversal (following first edge only)
+    # Stop at "end" nodes, never follow their outgoing edges
     seen: set[str] = set()
     visited_order: list[str] = []
     if start_nodes and not has_cycle_flag:
@@ -65,6 +71,9 @@ def compile_canvas(
                 break
             seen.add(current)
             visited_order.append(current)
+            # Stop traversal at "end" nodes
+            if nodes[current]["type"] == "end":
+                break
             next_ids = outgoing.get(current, [])
             current = next_ids[0] if next_ids else None
     elif start_nodes:
@@ -73,6 +82,9 @@ def compile_canvas(
         while current is not None and current in nodes and current not in seen:
             seen.add(current)
             visited_order.append(current)
+            # Stop traversal at "end" nodes
+            if nodes[current]["type"] == "end":
+                break
             next_ids = outgoing.get(current, [])
             current = next_ids[0] if next_ids else None
 
@@ -91,12 +103,14 @@ def compile_canvas(
                 "message": "This step has two next steps — Playbooks run one step at a time.",
             })
 
-    orphans = set(nodes) - seen
-    for node_id in orphans:
-        errors.append({
-            "node_id": node_id,
-            "message": "This step isn't connected to the playbook — attach it to the chain or remove it.",
-        })
+    # Only check for orphans when there is exactly one start node (otherwise false-positives)
+    if len(start_nodes) == 1:
+        orphans = set(nodes) - seen
+        for node_id in orphans:
+            errors.append({
+                "node_id": node_id,
+                "message": "This step isn't connected to the playbook — attach it to the chain or remove it.",
+            })
 
     for node_id in visited_order:
         node = nodes[node_id]
