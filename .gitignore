@@ -11,3 +11,4 @@ venv/
 /_site/
 .coverage
 htmlcov/
+.worktrees/
