@@ -223,6 +223,15 @@ class SqliteStore:
                 cur.execute("SELECT * FROM metrics_events WHERE event_type = ? ORDER BY id", (event_type,))
             return [dict(row) for row in cur.fetchall()]
 
+    def executescript(self, sql: str) -> None:
+        """Run a multi-statement SQL script (e.g. a CREATE TABLE block owned
+        by another module) under the store's own lock/connection, leaving
+        the existing SCHEMA/_init_schema() untouched."""
+        with self._lock:
+            conn = self._connect()
+            conn.executescript(sql)
+            conn.commit()
+
     def close(self) -> None:
         conn = getattr(self._local, "conn", None)
         if conn is not None:
