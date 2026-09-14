@@ -1,0 +1,35 @@
+{
+  "id": "tpl_multi_channel_social_content",
+  "name": "Multi-Channel Social Content",
+  "description": "Turn a content idea into platform-ready drafts, with a review step before anything goes out.",
+  "canvas_json": {
+    "nodes": [
+      {"id": "start", "type": "start", "data": {}},
+      {"id": "t1", "type": "teammate", "data": {
+        "role": "Content Strategist",
+        "objective": "Turn the intake idea into a short content plan: key message, tone, and one angle per platform.",
+        "tier": "balanced",
+        "connected_apps": [],
+        "knowledge": ["Brand voice guide"]
+      }},
+      {"id": "t2", "type": "teammate", "data": {
+        "role": "Platform Copywriter",
+        "objective": "Write a ready-to-post draft for each platform in the plan, matching each platform's typical length and tone.",
+        "tier": "speed",
+        "connected_apps": ["slack"],
+        "knowledge": []
+      }},
+      {"id": "g1", "type": "approval_gate", "data": {
+        "label": "Review drafts before publishing",
+        "allow_edit": true
+      }},
+      {"id": "end", "type": "end", "data": {}}
+    ],
+    "edges": [
+      {"source": "start", "target": "t1"},
+      {"source": "t1", "target": "t2"},
+      {"source": "t2", "target": "g1"},
+      {"source": "g1", "target": "end"}
+    ]
+  }
+}
