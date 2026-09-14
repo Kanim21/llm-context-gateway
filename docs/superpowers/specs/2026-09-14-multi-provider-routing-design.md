@@ -137,7 +137,11 @@ so they're unit-testable with no HTTP mocking at all:
 - **Tool-call turns:** an `assistant` message with `tool_calls` → a
   `model` turn whose parts are `functionCall: {name, args}` (one per
   call). A `role: "tool"` message (`tool_call_id` + `content`) → a `user`
-  turn with `parts: [{functionResponse: {name, response: {content: ...}}}]`.
+  turn with `parts: [{functionResponse: {name, response: ...}}]`, where
+  `response` **must always be a JSON object** (Gemini rejects a bare
+  string/number/array here): if `content` parses as a JSON object, it is
+  passed through as-is; otherwise (plain string, JSON array, JSON scalar,
+  or unparseable text) it is wrapped as `{"result": content}`.
   The function `name` is recovered by scanning the *same request's*
   `messages` array for the assistant `tool_calls` entry whose `id` matches
   — since OpenAI's API is stateless and resends full history every call,
