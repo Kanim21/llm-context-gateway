@@ -12,7 +12,9 @@ functionResponse) throughout.
 from __future__ import annotations
 
 import json
+import time
 from typing import Any
+from uuid import uuid4
 
 
 def translate_request(body: dict[str, Any]) -> dict[str, Any]:
@@ -130,3 +132,52 @@ def _translate_tool_choice(tool_choice: str | dict[str, Any]) -> dict[str, Any]:
         name = tool_choice["function"]["name"]
         return {"functionCallingConfig": {"mode": "ANY", "allowedFunctionNames": [name]}}
     return {"functionCallingConfig": {"mode": "AUTO"}}
+
+
+def translate_response(gemini_response: dict[str, Any], model: str) -> dict[str, Any]:
+    """Translates a Gemini generateContent response body into an
+    OpenAI-chat-completions-shaped response body."""
+    candidate = gemini_response["candidates"][0]
+    parts = candidate.get("content", {}).get("parts", [])
+
+    text_parts = [p["text"] for p in parts if "text" in p]
+    function_calls = [p["functionCall"] for p in parts if "functionCall" in p]
+
+    message: dict[str, Any] = {"role": "assistant", "content": "\n".join(text_parts) or None}
+    if function_calls:
+        message["tool_calls"] = [
+            {
+                "id": f"call_gemini_{uuid4().hex}",
+                "type": "function",
+                "function": {"name": fc["name"], "arguments": json.dumps(fc.get("args", {}))},
+            }
+            for fc in function_calls
+        ]
+
+    finish_reason = _translate_finish_reason(candidate.get("finishReason"), bool(function_calls))
+    usage = gemini_response.get("usageMetadata", {})
+
+    return {
+        "id": f"chatcmpl-gemini-{uuid4().hex}",
+        "object": "chat.completion",
+        "created": int(time.time()),
+        "model": model,
+        "choices": [{"index": 0, "message": message, "finish_reason": finish_reason}],
+        "usage": {
+            "prompt_tokens": usage.get("promptTokenCount", 0),
+            "completion_tokens": usage.get("candidatesTokenCount", 0),
+            "total_tokens": usage.get("totalTokenCount", 0),
+        },
+    }
+
+
+def _translate_finish_reason(gemini_reason: str | None, has_function_call: bool) -> str:
+    """MAX_TOKENS outranks tool_calls: a truncated response reports
+    "length" even if a partial function call is present."""
+    if gemini_reason == "MAX_TOKENS":
+        return "length"
+    if has_function_call:
+        return "tool_calls"
+    if gemini_reason in ("SAFETY", "RECITATION"):
+        return "content_filter"
+    return "stop"
