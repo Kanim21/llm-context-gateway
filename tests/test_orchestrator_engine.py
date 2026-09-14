@@ -66,3 +66,95 @@ class TestAssemblePromptWithPriorTeammates:
         assert "**Role:** Copywriter" in prompt
         assert "**Knowledge:**\n- brand voice guide" in prompt
         assert "**Connected Apps:**\n- slack" in prompt
+
+
+from agent_gateway.orchestrator.compiler import compile_canvas
+from agent_gateway.orchestrator.events import EventBus
+
+
+def _linear_playbook():
+    canvas = {
+        "nodes": [
+            {"id": "start", "type": "start", "data": {}},
+            {"id": "t1", "type": "teammate", "data": {
+                "role": "Qualifier", "objective": "Qualify the lead", "tier": "speed"}},
+            {"id": "t2", "type": "teammate", "data": {
+                "role": "Router", "objective": "Route to a rep", "tier": "speed"}},
+            {"id": "end", "type": "end", "data": {}},
+        ],
+        "edges": [
+            {"source": "start", "target": "t1"},
+            {"source": "t1", "target": "t2"},
+            {"source": "t2", "target": "end"},
+        ],
+    }
+    return compile_canvas(canvas, playbook_id="pb_1", name="Linear")
+
+
+class FakeCompletionFn:
+    def __init__(self, responses: dict[str, str]):
+        self.responses = responses
+        self.calls: list[dict] = []
+
+    async def __call__(self, *, model, prompt, on_token):
+        self.calls.append({"model": model, "prompt": prompt})
+        text = self.responses.get(model, "default response")
+        await on_token(text)
+        return text
+
+
+class TestPlaybookRunnerLinearRun:
+    async def test_start_run_executes_all_teammate_steps_to_completion(self):
+        from agent_gateway.orchestrator.engine import PlaybookRunner
+
+        store = _make_store()
+        blackboard_store = SqliteStore(":memory:")
+        playbook = _linear_playbook()
+        store.upsert_playbook(id=playbook.id, name=playbook.name, description="",
+                               schema_version=1, definition_json=playbook.model_dump(),
+                               canvas_json={})
+
+        fake_complete = FakeCompletionFn({"gpt-4o-mini": "Qualified: yes"})
+        runner = PlaybookRunner(
+            store=store, events=EventBus(),
+            tier_models={"speed": "gpt-4o-mini", "balanced": "gpt-4o", "brain": "gemini-1.5-pro"},
+            blackboard_store=blackboard_store, complete=fake_complete,
+        )
+
+        run_id = await runner.start_run(playbook, "New lead: Acme Corp")
+
+        run = store.get_run(run_id)
+        assert run["status"] == "completed"
+        records = store.list_step_records(run_id)
+        assert [r["status"] for r in records] == ["completed", "completed"]
+        assert records[0]["output_json"]["text"] == "Qualified: yes"
+        assert len(fake_complete.calls) == 2
+        assert fake_complete.calls[0]["model"] == "gpt-4o-mini"
+
+
+class TestPlaybookRunnerErrorHandling:
+    async def test_step_exception_marks_run_and_step_failed(self):
+        from agent_gateway.orchestrator.engine import PlaybookRunner
+
+        store = _make_store()
+        blackboard_store = SqliteStore(":memory:")
+        playbook = _linear_playbook()
+        store.upsert_playbook(id=playbook.id, name=playbook.name, description="",
+                               schema_version=1, definition_json=playbook.model_dump(),
+                               canvas_json={})
+
+        async def failing_complete(*, model, prompt, on_token):
+            raise RuntimeError("upstream exploded")
+
+        runner = PlaybookRunner(
+            store=store, events=EventBus(),
+            tier_models={"speed": "gpt-4o-mini", "balanced": "gpt-4o", "brain": "gemini-1.5-pro"},
+            blackboard_store=blackboard_store, complete=failing_complete,
+        )
+
+        run_id = await runner.start_run(playbook, "New lead")
+
+        run = store.get_run(run_id)
+        assert run["status"] == "failed"
+        records = store.list_step_records(run_id)
+        assert records[0]["status"] == "failed"
