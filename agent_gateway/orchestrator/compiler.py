@@ -122,6 +122,13 @@ def compile_canvas(
                 errors.append({"node_id": node_id, "message": "This teammate needs a role."})
             if not node["data"].get("objective", "").strip():
                 errors.append({"node_id": node_id, "message": "This teammate needs an objective."})
+            # Catch a missing or unknown tier here, before TeammateConfig(...)
+            # turns it into a KeyError / ValidationError escaping as a 500.
+            if node["data"].get("tier") not in ("speed", "balanced", "brain"):
+                errors.append({
+                    "node_id": node_id,
+                    "message": "Choose a Speed, Balanced, or Brain setting for this teammate.",
+                })
 
     if errors:
         raise CompilerError(errors)

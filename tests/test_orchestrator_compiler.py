@@ -217,3 +217,38 @@ class TestFinding3CycleInDisconnectedComponent:
         # Must report cycle message, not just orphan message
         messages = [e["message"] for e in exc_info.value.errors]
         assert "This playbook loops back on itself — playbooks run start to finish, once." in messages
+
+
+class TestTierValidation:
+    """A missing or unknown tier used to escape as a KeyError/ValidationError
+    500 instead of the compiler's documented error-list contract."""
+
+    _TIER_MESSAGE = "Choose a Speed, Balanced, or Brain setting for this teammate."
+
+    def _canvas_with_tier(self, **tier_kwargs):
+        return {
+            "nodes": [
+                _node("start", "start"),
+                _node("t1", "teammate", role="R", objective="O", **tier_kwargs),
+                _node("end", "end"),
+            ],
+            "edges": [
+                {"source": "start", "target": "t1"},
+                {"source": "t1", "target": "end"},
+            ],
+        }
+
+    def test_missing_tier_is_a_compile_error(self):
+        with pytest.raises(CompilerError) as exc_info:
+            compile_canvas(self._canvas_with_tier(), playbook_id="pb_1", name="Test")
+        assert self._TIER_MESSAGE in [e["message"] for e in exc_info.value.errors]
+
+    def test_unknown_tier_is_a_compile_error(self):
+        with pytest.raises(CompilerError) as exc_info:
+            compile_canvas(self._canvas_with_tier(tier="turbo"), playbook_id="pb_1", name="Test")
+        assert self._TIER_MESSAGE in [e["message"] for e in exc_info.value.errors]
+
+    def test_valid_tier_compiles(self):
+        playbook = compile_canvas(self._canvas_with_tier(tier="brain"),
+                                   playbook_id="pb_1", name="Test")
+        assert playbook.steps[0].teammate.tier == "brain"
