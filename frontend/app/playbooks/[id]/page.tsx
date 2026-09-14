@@ -5,18 +5,9 @@ import { useParams, useRouter } from "next/navigation";
 import { api } from "@/lib/api/client";
 import { PlaybookCanvas } from "@/components/canvas/PlaybookCanvas";
 import { TeammateDrawer, type TeammateDrawerConfig } from "@/components/drawer/TeammateDrawer";
+import { toFlowGraph, NODE_SPACING_X } from "@/lib/canvas/toFlowGraph";
 import type { PlaybookDetail } from "@/types/api";
-import type { Node, Edge } from "@xyflow/react";
-
-function toFlowGraph(canvasJson: { nodes: any[]; edges: any[] }): { nodes: Node[]; edges: Edge[] } {
-  const nodes: Node[] = canvasJson.nodes
-    .filter((n) => n.type === "teammate" || n.type === "approval_gate")
-    .map((n) => ({ id: n.id, type: n.type, data: n.data, position: { x: 0, y: 0 } }));
-  const edges: Edge[] = canvasJson.edges.map((e: any, i: number) => ({
-    id: `e${i}`, source: e.source, target: e.target,
-  }));
-  return { nodes, edges };
-}
+import type { Node } from "@xyflow/react";
 
 export default function PlaybookEditorPage() {
   const { id } = useParams<{ id: string }>();
@@ -47,7 +38,7 @@ export default function PlaybookEditorPage() {
         id: `teammate_${prev.length + nodes.length}`,
         type: "teammate",
         data: { role: config.role, objective: config.objective },
-        position: { x: 0, y: 0 },
+        position: { x: (nodes.length + prev.length) * NODE_SPACING_X, y: 0 },
       },
     ]);
     setDrawerOpen(false);
