@@ -181,3 +181,51 @@ def _translate_finish_reason(gemini_reason: str | None, has_function_call: bool)
     if gemini_reason in ("SAFETY", "RECITATION"):
         return "content_filter"
     return "stop"
+
+
+def translate_stream_chunk(
+    event: dict[str, Any], *, chunk_id: str, model: str, created: int
+) -> list[dict[str, Any]]:
+    """Translates one Gemini streamGenerateContent SSE JSON event into
+    0+ OpenAI-shaped chat.completion.chunk dicts."""
+    candidates = event.get("candidates") or []
+    if not candidates:
+        return []
+    candidate = candidates[0]
+    parts = candidate.get("content", {}).get("parts", [])
+
+    chunks: list[dict[str, Any]] = []
+
+    text = "".join(p["text"] for p in parts if "text" in p)
+    if text:
+        chunks.append(_stream_chunk(chunk_id, model, created, delta={"content": text}))
+
+    function_calls = [p["functionCall"] for p in parts if "functionCall" in p]
+    for i, fc in enumerate(function_calls):
+        chunks.append(_stream_chunk(chunk_id, model, created, delta={
+            "tool_calls": [{
+                "index": i,
+                "id": f"call_gemini_{uuid4().hex}",
+                "type": "function",
+                "function": {"name": fc["name"], "arguments": json.dumps(fc.get("args", {}))},
+            }],
+        }))
+
+    finish_reason_raw = candidate.get("finishReason")
+    if finish_reason_raw:
+        finish_reason = _translate_finish_reason(finish_reason_raw, bool(function_calls))
+        chunks.append(_stream_chunk(chunk_id, model, created, delta={}, finish_reason=finish_reason))
+
+    return chunks
+
+
+def _stream_chunk(
+    chunk_id: str, model: str, created: int, *, delta: dict[str, Any], finish_reason: str | None = None
+) -> dict[str, Any]:
+    return {
+        "id": chunk_id,
+        "object": "chat.completion.chunk",
+        "created": created,
+        "model": model,
+        "choices": [{"index": 0, "delta": delta, "finish_reason": finish_reason}],
+    }

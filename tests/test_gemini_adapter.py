@@ -236,3 +236,48 @@ class TestTranslateResponse:
         }
         result = translate_response(gemini_response, model="gemini-1.5-pro")
         assert result["usage"] == {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+
+
+from agent_gateway.adapters.gemini_adapter import translate_stream_chunk
+
+
+class TestTranslateStreamChunk:
+    CHUNK_ID = "chatcmpl-gemini-test"
+    MODEL = "gemini-1.5-pro"
+    CREATED = 1_700_000_000
+
+    def test_text_delta_chunk(self):
+        event = {"candidates": [{"content": {"parts": [{"text": "Hel"}]}}]}
+        chunks = translate_stream_chunk(event, chunk_id=self.CHUNK_ID, model=self.MODEL, created=self.CREATED)
+        assert len(chunks) == 1
+        assert chunks[0]["object"] == "chat.completion.chunk"
+        assert chunks[0]["choices"][0]["delta"] == {"content": "Hel"}
+        assert chunks[0]["choices"][0]["finish_reason"] is None
+
+    def test_function_call_delta_chunk(self):
+        event = {"candidates": [{"content": {"parts": [
+            {"functionCall": {"name": "get_weather", "args": {"city": "Paris"}}},
+        ]}}]}
+        chunks = translate_stream_chunk(event, chunk_id=self.CHUNK_ID, model=self.MODEL, created=self.CREATED)
+        assert len(chunks) == 1
+        delta = chunks[0]["choices"][0]["delta"]
+        assert delta["tool_calls"][0]["function"]["name"] == "get_weather"
+        assert json.loads(delta["tool_calls"][0]["function"]["arguments"]) == {"city": "Paris"}
+
+    def test_terminal_chunk_carries_finish_reason(self):
+        event = {"candidates": [{"content": {"parts": []}, "finishReason": "STOP"}]}
+        chunks = translate_stream_chunk(event, chunk_id=self.CHUNK_ID, model=self.MODEL, created=self.CREATED)
+        assert len(chunks) == 1
+        assert chunks[0]["choices"][0]["finish_reason"] == "stop"
+        assert chunks[0]["choices"][0]["delta"] == {}
+
+    def test_event_with_no_candidates_produces_no_chunks(self):
+        assert translate_stream_chunk({}, chunk_id=self.CHUNK_ID, model=self.MODEL, created=self.CREATED) == []
+
+    def test_all_chunks_share_the_same_id_model_and_created(self):
+        event = {"candidates": [{"content": {"parts": [{"text": "hi"}]}, "finishReason": "STOP"}]}
+        chunks = translate_stream_chunk(event, chunk_id=self.CHUNK_ID, model=self.MODEL, created=self.CREATED)
+        for chunk in chunks:
+            assert chunk["id"] == self.CHUNK_ID
+            assert chunk["model"] == self.MODEL
+            assert chunk["created"] == self.CREATED
