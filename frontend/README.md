@@ -1,36 +1,43 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Visual Playbook Builder (frontend)
 
-## Getting Started
+The Next.js UI for Agent Gateway's playbooks: build a linear chain of
+teammates and approval gates on a canvas, start a run, watch it stream, and
+approve, edit or reject at each gate.
 
-First, run the development server:
+## Running it
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev     # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+It talks to the gateway backend, which must be running separately:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+uvicorn agent_gateway.proxy.server:app --port 8080
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The backend URL defaults to `http://localhost:8080`. Point it somewhere else
+with `NEXT_PUBLIC_GATEWAY_URL`. The backend only allows browser requests from
+`http://localhost:3000`, so if you move either side, update the CORS origin in
+`agent_gateway/proxy/server.py` too.
 
-## Learn More
+## Checks
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm test        # vitest
+npm run build   # includes the TypeScript check
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Known v1 limitations (stated explicitly, not hidden)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- A crash mid-step re-runs that step from scratch; only gate-paused runs
+  resume without re-work.
+- Connected Apps affect only prompt framing — no live API calls, no OAuth.
+- No branching, no parallel steps, no conditional routing.
+- Single-user, no auth — anyone who can reach the frontend can run and
+  approve any playbook.
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Additionally, in this UI: teammates added through the "Add Teammate" drawer are
+not saved to the playbook — there is no endpoint for that yet — so they live in
+your browser tab only, and Run is disabled while any are present.

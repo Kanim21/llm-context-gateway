@@ -25,6 +25,10 @@ export default function PlaybookEditorPage() {
 
   const { nodes, edges } = toFlowGraph(playbook.canvas_json as any);
   const allNodes = [...nodes, ...extraNodes];
+  // There's no endpoint to save a teammate onto an existing playbook yet, so
+  // anything added here lives in this tab only -- and Run would run the saved
+  // playbook without it. Say so, and don't let Run quietly skip them.
+  const hasUnsavedTeammates = extraNodes.length > 0;
 
   const runNow = async () => {
     const run = await api.startRun(playbook.id, inputText);
@@ -49,9 +53,23 @@ export default function PlaybookEditorPage() {
       <h1>{playbook.name}</h1>
       <PlaybookCanvas nodes={allNodes} edges={edges} />
       <button onClick={() => setDrawerOpen(true)}>Add Teammate</button>
+      {hasUnsavedTeammates && (
+        <p role="status">
+          Added teammates are not saved yet — this canvas view is local to your
+          browser tab, and a run would go ahead without them.
+        </p>
+      )}
       {drawerOpen && <TeammateDrawer onSave={addTeammate} />}
       <input aria-label="Run input" value={inputText} onChange={(e) => setInputText(e.target.value)} />
-      <button onClick={runNow}>Run</button>
+      <button
+        onClick={runNow}
+        disabled={hasUnsavedTeammates}
+        title={hasUnsavedTeammates
+          ? "Remove the teammates you added, or reload the page, to run the saved playbook."
+          : undefined}
+      >
+        Run
+      </button>
     </main>
   );
 }
