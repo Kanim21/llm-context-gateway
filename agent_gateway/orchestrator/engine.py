@@ -140,3 +140,26 @@ class PlaybookRunner:
             if record["step_index"] < gate_index and record["status"] == "completed":
                 return record["output_json"] or {"text": ""}
         return {"text": ""}
+
+    async def resume_with_decision(self, playbook: Playbook, run_id: str, decision: str,
+                                    edited_output: dict | None = None) -> None:
+        run = self.store.get_run(run_id)
+        index = run["current_step_index"]
+        record = self.store.get_step_record(run_id, index)
+
+        self.store.record_gate_decision(id=new_id("gd"), run_id=run_id, step_index=index,
+                                         decision=decision, edited_output_json=edited_output)
+
+        if decision == "reject":
+            self.store.update_step_record(record["id"], status="rejected", completed_at=_now())
+            self.store.update_run_status(run_id, "rejected")
+            return
+
+        output_json = edited_output if decision == "edit" else None
+        if output_json is not None:
+            self.store.update_step_record(record["id"], status="completed",
+                                           output_json=output_json, completed_at=_now())
+        else:
+            self.store.update_step_record(record["id"], status="completed", completed_at=_now())
+
+        await self._complete_step_and_continue(playbook, run_id, index)

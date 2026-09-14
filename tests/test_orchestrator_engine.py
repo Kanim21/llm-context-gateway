@@ -158,3 +158,76 @@ class TestPlaybookRunnerErrorHandling:
         assert run["status"] == "failed"
         records = store.list_step_records(run_id)
         assert records[0]["status"] == "failed"
+
+
+def _playbook_with_gate():
+    canvas = {
+        "nodes": [
+            {"id": "start", "type": "start", "data": {}},
+            {"id": "t1", "type": "teammate", "data": {
+                "role": "Qualifier", "objective": "Qualify the lead", "tier": "speed"}},
+            {"id": "g1", "type": "approval_gate", "data": {"label": "Review before routing"}},
+            {"id": "t2", "type": "teammate", "data": {
+                "role": "Router", "objective": "Route to a rep", "tier": "speed"}},
+            {"id": "end", "type": "end", "data": {}},
+        ],
+        "edges": [
+            {"source": "start", "target": "t1"},
+            {"source": "t1", "target": "g1"},
+            {"source": "g1", "target": "t2"},
+            {"source": "t2", "target": "end"},
+        ],
+    }
+    return compile_canvas(canvas, playbook_id="pb_gate", name="Gated")
+
+
+class TestPlaybookRunnerGate:
+    async def _runner(self):
+        store = _make_store()
+        playbook = _playbook_with_gate()
+        store.upsert_playbook(id=playbook.id, name=playbook.name, description="",
+                               schema_version=1, definition_json=playbook.model_dump(), canvas_json={})
+        from agent_gateway.orchestrator.engine import PlaybookRunner
+        fake_complete = FakeCompletionFn({"gpt-4o-mini": "Qualified: yes"})
+        runner = PlaybookRunner(
+            store=store, events=EventBus(),
+            tier_models={"speed": "gpt-4o-mini", "balanced": "gpt-4o", "brain": "gemini-1.5-pro"},
+            blackboard_store=SqliteStore(":memory:"), complete=fake_complete,
+        )
+        return runner, playbook, store
+
+    async def test_run_pauses_at_gate(self):
+        runner, playbook, store = await self._runner()
+        run_id = await runner.start_run(playbook, "New lead")
+        run = store.get_run(run_id)
+        assert run["status"] == "paused"
+        gate_record = store.get_step_record(run_id, 1)
+        assert gate_record["status"] == "awaiting_approval"
+
+    async def test_approve_resumes_and_completes_run(self):
+        runner, playbook, store = await self._runner()
+        run_id = await runner.start_run(playbook, "New lead")
+        await runner.resume_with_decision(playbook, run_id, "approve")
+        run = store.get_run(run_id)
+        assert run["status"] == "completed"
+        gate_record = store.get_step_record(run_id, 1)
+        assert gate_record["status"] == "completed"
+
+    async def test_edit_overrides_output_before_resuming(self):
+        runner, playbook, store = await self._runner()
+        run_id = await runner.start_run(playbook, "New lead")
+        await runner.resume_with_decision(runbook := playbook, run_id, "edit",
+                                           edited_output={"text": "Edited qualification note"})
+        gate_record = store.get_step_record(run_id, 1)
+        assert gate_record["output_json"] == {"text": "Edited qualification note"}
+        run = store.get_run(run_id)
+        assert run["status"] == "completed"
+
+    async def test_reject_stops_run_without_advancing(self):
+        runner, playbook, store = await self._runner()
+        run_id = await runner.start_run(playbook, "New lead")
+        await runner.resume_with_decision(playbook, run_id, "reject")
+        run = store.get_run(run_id)
+        assert run["status"] == "rejected"
+        gate_record = store.get_step_record(run_id, 1)
+        assert gate_record["status"] == "rejected"
