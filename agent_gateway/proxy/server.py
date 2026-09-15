@@ -14,6 +14,7 @@ module only wires them together and speaks HTTP.
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 from contextlib import asynccontextmanager
 from typing import Any
@@ -43,6 +44,8 @@ from agent_gateway.proxy.config import GatewayConfig
 from agent_gateway.proxy.logging_config import install_log_redaction
 from agent_gateway.proxy.metrics import MetricsAccumulator
 from agent_gateway.storage.sqlite_store import SqliteStore
+
+logger = logging.getLogger("agent_gateway.proxy.server")
 
 
 class GatewayState:
@@ -159,7 +162,10 @@ def create_app(config: GatewayConfig | None = None) -> FastAPI:
                     return StreamingResponse(gen, media_type="text/event-stream")
                 gemini_response = await adapter.generate_content(body, client=gw.http_client)
             except httpx.HTTPStatusError as exc:
-                raise HTTPException(status_code=exc.response.status_code, detail=exc.response.text) from exc
+                logger.warning("upstream provider error: status=%s body=%s",
+                               exc.response.status_code, exc.response.text)
+                raise HTTPException(status_code=exc.response.status_code,
+                                    detail="Upstream provider error") from exc
             except (ValueError, KeyError, TypeError) as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
             return JSONResponse(translate_response(gemini_response, model))
@@ -175,7 +181,10 @@ def create_app(config: GatewayConfig | None = None) -> FastAPI:
                 return StreamingResponse(gen, media_type="text/event-stream")
             result = await adapter.chat_completions(body, client=gw.http_client)
         except httpx.HTTPStatusError as exc:
-            raise HTTPException(status_code=exc.response.status_code, detail=exc.response.text) from exc
+            logger.warning("upstream provider error: status=%s body=%s",
+                           exc.response.status_code, exc.response.text)
+            raise HTTPException(status_code=exc.response.status_code,
+                                detail="Upstream provider error") from exc
         except GuardrailViolation as exc:
             raise HTTPException(status_code=422, detail=exc.message) from exc
 
@@ -200,7 +209,10 @@ def create_app(config: GatewayConfig | None = None) -> FastAPI:
         try:
             result = await adapter.messages(body, client=gw.http_client)
         except httpx.HTTPStatusError as exc:
-            raise HTTPException(status_code=exc.response.status_code, detail=exc.response.text) from exc
+            logger.warning("upstream provider error: status=%s body=%s",
+                           exc.response.status_code, exc.response.text)
+            raise HTTPException(status_code=exc.response.status_code,
+                                detail="Upstream provider error") from exc
 
         return JSONResponse(result)
 
