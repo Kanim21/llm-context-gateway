@@ -2,13 +2,37 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
 class UpstreamConfig(BaseModel):
-    openai_base_url: str = "https://api.openai.com/v1"
     anthropic_base_url: str = "https://api.anthropic.com/v1"
     request_timeout_s: float = 60.0
+
+
+class ProviderConfig(BaseModel):
+    name: str
+    wire_shape: Literal["openai_compatible", "gemini"]
+    base_url: str
+    api_key_env: str | None = None
+    api_key_header: str | None = None
+
+
+class ProvidersConfig(BaseModel):
+    entries: list[ProviderConfig] = Field(
+        default_factory=lambda: [
+            ProviderConfig(
+                name="openai",
+                wire_shape="openai_compatible",
+                base_url="https://api.openai.com/v1",
+                api_key_env="OPENAI_API_KEY",
+            ),
+        ]
+    )
+    model_routes: dict[str, str] = Field(default_factory=dict)
+    default_provider: str = "openai"
 
 
 class MaskingConfig(BaseModel):
@@ -56,6 +80,7 @@ class GatewayConfig(BaseModel):
     routing: RoutingConfig = Field(default_factory=RoutingConfig)
     lossy_defaults: LossyDefaultsConfig = Field(default_factory=LossyDefaultsConfig)
     storage: StorageConfig = Field(default_factory=StorageConfig)
+    providers: ProvidersConfig = Field(default_factory=ProvidersConfig)
 
     @classmethod
     def load(cls, path: str | None = None) -> "GatewayConfig":
