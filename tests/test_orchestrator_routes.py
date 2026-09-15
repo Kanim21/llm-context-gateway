@@ -1,15 +1,23 @@
 """End-to-end tests for the orchestrator's FastAPI routes, including the
 SSE termination requirement (route must close the stream right after a
-terminal event)."""
+terminal event, and serve a snapshot frame to late/finished subscribers).
+
+start_run is non-blocking: POST /runs returns immediately with status
+"running", and the run executes in the background. Tests therefore poll
+the run snapshot for the expected state rather than reading it off the
+POST response.
+"""
 
 from __future__ import annotations
 
+import asyncio
 import json
 
 import httpx
 import pytest
 
 from agent_gateway.core.provider_routing import ProviderRegistry
+from agent_gateway.orchestrator.compiler import compile_canvas
 from agent_gateway.orchestrator.engine import PlaybookRunner
 from agent_gateway.orchestrator.events import EventBus
 from agent_gateway.orchestrator.routes import build_router
@@ -46,6 +54,29 @@ def _app():
 def _client():
     transport = httpx.ASGITransport(app=_app())
     return httpx.AsyncClient(transport=transport, base_url="http://test")
+
+
+async def _snapshot(client, run_id):
+    return (await client.get(f"/v1/playbooks/runs/{run_id}")).json()
+
+
+async def _wait_until(client, run_id, pred, tries=200):
+    """Poll the run snapshot until pred(snapshot) holds (start_run runs in the
+    background now). Returns the snapshot; raises if it never settles."""
+    snap = await _snapshot(client, run_id)
+    for _ in range(tries):
+        if pred(snap):
+            return snap
+        await asyncio.sleep(0.005)
+        snap = await _snapshot(client, run_id)
+    raise AssertionError(
+        f"run {run_id} never settled; last status={snap.get('status')} "
+        f"step={snap.get('current_step_index')}"
+    )
+
+
+async def _wait_for_status(client, run_id, status, tries=200):
+    return await _wait_until(client, run_id, lambda s: s["status"] == status, tries)
 
 
 class TestCreateAndListPlaybooks:
@@ -100,9 +131,9 @@ class TestRunLifecycleAndSSETermination:
             assert run_resp.status_code == 200
             run_id = run_resp.json()["id"]
 
-            snapshot_resp = await client.get(f"/v1/playbooks/runs/{run_id}")
-            assert snapshot_resp.status_code == 200
-            assert snapshot_resp.json()["status"] == "completed"
+            # start_run is non-blocking: the run finishes in the background.
+            snap = await _wait_for_status(client, run_id, "completed")
+            assert snap["status"] == "completed"
 
     async def test_sse_stream_closes_after_terminal_event(self):
         app = _app()
@@ -115,13 +146,13 @@ class TestRunLifecycleAndSSETermination:
             ],
             "edges": [{"source": "start", "target": "g1"}, {"source": "g1", "target": "end"}],
         }
-        from agent_gateway.orchestrator.compiler import compile_canvas
         playbook = compile_canvas(canvas, playbook_id="pb_sse", name="SSE Test")
         gw.orchestrator_store.upsert_playbook(
             id=playbook.id, name=playbook.name, description="", schema_version=1,
             definition_json=playbook.model_dump(), canvas_json=canvas,
         )
-        run_id = await gw.playbook_runner.start_run(playbook, "hi")  # pauses at the gate
+        run_id = await gw.playbook_runner.start_run(playbook, "hi")
+        await gw.playbook_runner.wait(run_id)  # run reaches the gate pause
 
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
@@ -130,9 +161,69 @@ class TestRunLifecycleAndSSETermination:
                 async for chunk in resp.aiter_bytes():
                     body += chunk
                 # aiter_bytes() completing at all (rather than hanging) proves the
-                # generator returned right after the terminal event -- this is the
-                # concrete proof of the SSE Termination requirement.
+                # stream returned right after the terminal frame -- the concrete
+                # proof of the SSE Termination requirement.
                 assert b"gate_paused" in body
+
+
+class TestSSETerminationSnapshot:
+    """Late/finished subscribers: the live bus never delivers a terminal event
+    to them, so the endpoint reconstructs one frame from the run snapshot."""
+
+    async def test_stream_of_already_completed_run_emits_run_completed_and_closes(self):
+        app = _app()
+        gw = app.state.gateway
+        canvas = {
+            "nodes": [
+                {"id": "start", "type": "start", "data": {}},
+                {"id": "t1", "type": "teammate", "data": {"role": "R", "objective": "O", "tier": "speed"}},
+                {"id": "end", "type": "end", "data": {}},
+            ],
+            "edges": [{"source": "start", "target": "t1"}, {"source": "t1", "target": "end"}],
+        }
+        playbook = compile_canvas(canvas, playbook_id="pb_done", name="Done")
+        gw.orchestrator_store.upsert_playbook(
+            id=playbook.id, name=playbook.name, description="", schema_version=1,
+            definition_json=playbook.model_dump(), canvas_json=canvas,
+        )
+        run_id = await gw.playbook_runner.start_run(playbook, "hi")
+        await gw.playbook_runner.wait(run_id)  # finished, and nobody was subscribed
+
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            async with client.stream("GET", f"/v1/playbooks/runs/{run_id}/events") as resp:
+                body = b""
+                async for chunk in resp.aiter_bytes():
+                    body += chunk
+        assert b"run_completed" in body
+
+    async def test_stream_of_rejected_run_emits_run_rejected_and_closes(self):
+        app = _app()
+        gw = app.state.gateway
+        canvas = {
+            "nodes": [
+                {"id": "start", "type": "start", "data": {}},
+                {"id": "g1", "type": "approval_gate", "data": {"label": "Review"}},
+                {"id": "end", "type": "end", "data": {}},
+            ],
+            "edges": [{"source": "start", "target": "g1"}, {"source": "g1", "target": "end"}],
+        }
+        playbook = compile_canvas(canvas, playbook_id="pb_rej", name="Rej")
+        gw.orchestrator_store.upsert_playbook(
+            id=playbook.id, name=playbook.name, description="", schema_version=1,
+            definition_json=playbook.model_dump(), canvas_json=canvas,
+        )
+        run_id = await gw.playbook_runner.start_run(playbook, "hi")
+        await gw.playbook_runner.wait(run_id)  # paused at the gate
+        await gw.playbook_runner.resume_with_decision(playbook, run_id, "reject", 0)
+
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            async with client.stream("GET", f"/v1/playbooks/runs/{run_id}/events") as resp:
+                body = b""
+                async for chunk in resp.aiter_bytes():
+                    body += chunk
+        assert b"run_rejected" in body
 
 
 _GATED_CANVAS = {
@@ -173,7 +264,7 @@ class TestRequestValidation:
             run_resp = await client.post(f"/v1/playbooks/{playbook_id}/runs",
                                           json={"input": {"text": "hi"}})
             run_id = run_resp.json()["id"]
-            assert run_resp.json()["status"] == "paused"
+            await _wait_for_status(client, run_id, "paused")
 
             resp = await client.post(f"/v1/playbooks/runs/{run_id}/gate",
                                       json={"decision": "banana", "step_index": 0})
@@ -192,11 +283,12 @@ class TestGateDoubleSubmit:
             run_resp = await client.post(f"/v1/playbooks/{playbook_id}/runs",
                                           json={"input": {"text": "hi"}})
             run_id = run_resp.json()["id"]
+            await _wait_for_status(client, run_id, "paused")
 
             first = await client.post(f"/v1/playbooks/runs/{run_id}/gate",
                                        json={"decision": "approve", "step_index": 0})
             assert first.status_code == 200
-            assert first.json()["status"] == "completed"
+            await _wait_for_status(client, run_id, "completed")
 
             second = await client.post(f"/v1/playbooks/runs/{run_id}/gate",
                                         json={"decision": "reject", "step_index": 0})
@@ -225,13 +317,14 @@ class TestGateDecision:
             playbook_id = create_resp.json()["id"]
             run_resp = await client.post(f"/v1/playbooks/{playbook_id}/runs", json={"input": {"text": "hi"}})
             run_id = run_resp.json()["id"]
+            await _wait_for_status(client, run_id, "paused")
 
             decision_resp = await client.post(f"/v1/playbooks/runs/{run_id}/gate",
                                                json={"decision": "approve", "step_index": 0})
             assert decision_resp.status_code == 200
 
-            snapshot_resp = await client.get(f"/v1/playbooks/runs/{run_id}")
-            assert snapshot_resp.json()["status"] == "completed"
+            snap = await _wait_for_status(client, run_id, "completed")
+            assert snap["status"] == "completed"
 
 
 class TestGateStepIndexMismatch:
@@ -261,14 +354,15 @@ class TestGateStepIndexMismatch:
             run_resp = await client.post(f"/v1/playbooks/{playbook_id}/runs",
                                           json={"input": {"text": "hi"}})
             run_id = run_resp.json()["id"]
-            assert run_resp.json()["status"] == "paused"
-            assert run_resp.json()["current_step_index"] == 0  # paused at g1
+            snap = await _wait_for_status(client, run_id, "paused")
+            assert snap["current_step_index"] == 0  # paused at g1
 
             first = await client.post(f"/v1/playbooks/runs/{run_id}/gate",
                                        json={"decision": "approve", "step_index": 0})
             assert first.status_code == 200
-            assert first.json()["status"] == "paused"
-            assert first.json()["current_step_index"] == 2  # advanced to g2
+            # After approving g1, t1 runs and the run pauses at g2 (index 2).
+            snap = await _wait_until(client, run_id,
+                                     lambda s: s["status"] == "paused" and s["current_step_index"] == 2)
 
             # Stale/duplicate submission still naming g1 must be rejected, not
             # silently applied to g2 (the run's actual current gate).
@@ -284,7 +378,8 @@ class TestGateStepIndexMismatch:
             correct = await client.post(f"/v1/playbooks/runs/{run_id}/gate",
                                          json={"decision": "approve", "step_index": 2})
             assert correct.status_code == 200
-            assert correct.json()["status"] == "completed"
+            snap = await _wait_for_status(client, run_id, "completed")
+            assert snap["status"] == "completed"
 
     async def test_wrong_step_index_on_single_gate_playbook_returns_409(self):
         async with _client() as client:
@@ -294,7 +389,8 @@ class TestGateStepIndexMismatch:
             run_resp = await client.post(f"/v1/playbooks/{playbook_id}/runs",
                                           json={"input": {"text": "hi"}})
             run_id = run_resp.json()["id"]
-            assert run_resp.json()["current_step_index"] == 0
+            snap = await _wait_for_status(client, run_id, "paused")
+            assert snap["current_step_index"] == 0
 
             resp = await client.post(f"/v1/playbooks/runs/{run_id}/gate",
                                       json={"decision": "approve", "step_index": 7})

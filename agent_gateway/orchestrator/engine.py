@@ -36,7 +36,8 @@ def assemble_prompt(
     return "\n\n".join(parts)
 
 
-from dataclasses import dataclass
+import asyncio
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Protocol
 import json as _json
@@ -83,6 +84,35 @@ class PlaybookRunner:
     tier_models: dict[str, str]
     blackboard_store: SqliteStore
     complete: CompletionFn
+    # In-flight background executions, keyed by run_id. Not a constructor arg.
+    _tasks: dict[str, asyncio.Task] = field(default_factory=dict, init=False, repr=False)
+
+    def _spawn(self, run_id: str, coro) -> None:
+        task = asyncio.create_task(coro)
+        self._tasks[run_id] = task
+        task.add_done_callback(
+            lambda t: self._tasks.pop(run_id, None) if self._tasks.get(run_id) is t else None
+        )
+
+    async def wait(self, run_id: str) -> None:
+        """Await the in-flight execution for a run. Test/shutdown helper; a
+        no-op if nothing is running."""
+        task = self._tasks.get(run_id)
+        if task is not None:
+            await task
+
+    async def _execute(self, playbook: Playbook, run_id: str) -> None:
+        """Background driver for a run. Per-step failures are handled in
+        _run_teammate_step; this is the backstop for anything else, so a
+        background crash marks the run failed and terminates the SSE stream
+        instead of vanishing."""
+        try:
+            await self._advance(playbook, run_id)
+        except Exception as exc:  # noqa: BLE001 - last-resort backstop
+            self.store.update_run_status(run_id, "failed")
+            run = self.store.get_run(run_id)
+            index = run["current_step_index"] if run else 0
+            await self.events.publish(run_id, "run_failed", {"step_index": index, "error": str(exc)})
 
     async def start_run(self, playbook: Playbook, input_text: str) -> str:
         run_id = new_id("run")
@@ -95,7 +125,11 @@ class PlaybookRunner:
         blackboard = Blackboard(self.blackboard_store, run_id)
         blackboard.goal = f"Run playbook: {playbook.name}"
 
-        await self._advance(playbook, run_id)
+        # Do NOT await the run here: it would hold the POST /runs request open
+        # for the entire run (every teammate step is a live LLM call). Execute
+        # in the background and return immediately; clients watch via SSE or by
+        # polling the run snapshot.
+        self._spawn(run_id, self._execute(playbook, run_id))
         return run_id
 
     async def _advance(self, playbook: Playbook, run_id: str) -> None:
@@ -207,6 +241,8 @@ class PlaybookRunner:
         if decision == "reject":
             self.store.update_step_record(record["id"], status="rejected", completed_at=_now())
             self.store.update_run_status(run_id, "rejected")
+            # Terminate any live SSE stream for this run (see routes.py).
+            await self.events.publish(run_id, "run_rejected", {"step_index": index})
             return
 
         output_json = edited_output if decision == "edit" else None
@@ -219,7 +255,16 @@ class PlaybookRunner:
             if prev_record is not None:
                 self.store.update_step_record(prev_record["id"], output_json=edited_output)
 
-        await self._complete_step_and_continue(playbook, run_id, index)
+        # Same non-blocking rationale as start_run: don't hold the gate POST
+        # open while the rest of the run executes.
+        self._spawn(run_id, self._execute_continuation(playbook, run_id, index))
+
+    async def _execute_continuation(self, playbook: Playbook, run_id: str, index: int) -> None:
+        try:
+            await self._complete_step_and_continue(playbook, run_id, index)
+        except Exception as exc:  # noqa: BLE001
+            self.store.update_run_status(run_id, "failed")
+            await self.events.publish(run_id, "run_failed", {"step_index": index, "error": str(exc)})
 
     async def recover_interrupted_runs(self, playbooks_by_id: dict[str, Playbook]) -> None:
         for run in self.store.list_runs_by_status("running"):

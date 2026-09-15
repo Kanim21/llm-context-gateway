@@ -122,6 +122,7 @@ class TestPlaybookRunnerLinearRun:
         )
 
         run_id = await runner.start_run(playbook, "New lead: Acme Corp")
+        await runner.wait(run_id)
 
         run = store.get_run(run_id)
         assert run["status"] == "completed"
@@ -153,6 +154,7 @@ class TestPlaybookRunnerErrorHandling:
         )
 
         run_id = await runner.start_run(playbook, "New lead")
+        await runner.wait(run_id)
 
         run = store.get_run(run_id)
         assert run["status"] == "failed"
@@ -215,6 +217,7 @@ class TestPlaybookRunnerGate:
     async def test_run_pauses_at_gate(self):
         runner, playbook, store = await self._runner()
         run_id = await runner.start_run(playbook, "New lead")
+        await runner.wait(run_id)
         run = store.get_run(run_id)
         assert run["status"] == "paused"
         gate_record = store.get_step_record(run_id, 1)
@@ -223,7 +226,9 @@ class TestPlaybookRunnerGate:
     async def test_approve_resumes_and_completes_run(self):
         runner, playbook, store = await self._runner()
         run_id = await runner.start_run(playbook, "New lead")
+        await runner.wait(run_id)
         await runner.resume_with_decision(playbook, run_id, "approve", 1)
+        await runner.wait(run_id)
         run = store.get_run(run_id)
         assert run["status"] == "completed"
         gate_record = store.get_step_record(run_id, 1)
@@ -232,8 +237,10 @@ class TestPlaybookRunnerGate:
     async def test_edit_overrides_output_before_resuming(self):
         runner, playbook, store = await self._runner()
         run_id = await runner.start_run(playbook, "New lead")
+        await runner.wait(run_id)
         await runner.resume_with_decision(runbook := playbook, run_id, "edit", 1,
                                            edited_output={"text": "Edited qualification note"})
+        await runner.wait(run_id)
         gate_record = store.get_step_record(run_id, 1)
         assert gate_record["output_json"] == {"text": "Edited qualification note"}
         run = store.get_run(run_id)
@@ -243,8 +250,10 @@ class TestPlaybookRunnerGate:
         from agent_gateway.orchestrator.engine import assemble_prompt
         runner, playbook, store = await self._runner()
         run_id = await runner.start_run(playbook, "New lead")
+        await runner.wait(run_id)
         await runner.resume_with_decision(playbook, run_id, "edit", 1,
                                            edited_output={"text": "Edited qualification note"})
+        await runner.wait(run_id)
         run = store.get_run(run_id)
         prompt = assemble_prompt(store, run=run, steps=playbook.steps, step_index=2)
         assert "Edited qualification note" in prompt
@@ -253,6 +262,7 @@ class TestPlaybookRunnerGate:
     async def test_reject_stops_run_without_advancing(self):
         runner, playbook, store = await self._runner()
         run_id = await runner.start_run(playbook, "New lead")
+        await runner.wait(run_id)
         await runner.resume_with_decision(playbook, run_id, "reject", 1)
         run = store.get_run(run_id)
         assert run["status"] == "rejected"
@@ -271,6 +281,7 @@ class TestGateDecisionGuards:
 
         runner, playbook, store = _gate_runner()
         run_id = await runner.start_run(playbook, "New lead")
+        await runner.wait(run_id)
 
         with pytest.raises(InvalidDecisionError):
             await runner.resume_with_decision(playbook, run_id, "banana", 1)
@@ -285,7 +296,9 @@ class TestGateDecisionGuards:
 
         runner, playbook, store = _gate_runner()
         run_id = await runner.start_run(playbook, "New lead")
+        await runner.wait(run_id)
         await runner.resume_with_decision(playbook, run_id, "approve", 1)
+        await runner.wait(run_id)
         assert store.get_run(run_id)["status"] == "completed"
 
         with pytest.raises(RunStateError):
@@ -299,6 +312,7 @@ class TestGateDecisionGuards:
 
         runner, playbook, store = _gate_runner()
         run_id = await runner.start_run(playbook, "New lead")
+        await runner.wait(run_id)
         # Force the run back to a non-gate step while still "paused".
         store.update_run_status(run_id, "paused", current_step_index=0)
 
@@ -314,6 +328,7 @@ class TestGateDecisionGuards:
 
         runner, playbook, store = _gate_runner()
         run_id = await runner.start_run(playbook, "New lead")
+        await runner.wait(run_id)
         assert store.get_run(run_id)["current_step_index"] == 1
 
         with pytest.raises(RunStateError):
