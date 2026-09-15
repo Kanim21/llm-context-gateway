@@ -236,20 +236,23 @@ class OrchestratorStore:
                             output_json: dict | None = None,
                             started_at: str | None = None,
                             completed_at: str | None = None) -> None:
-        fields, values = [], []
-        if status is not None:
-            fields.append("status = ?"); values.append(status)
-        if output_json is not None:
-            fields.append("output_json = ?"); values.append(json.dumps(output_json))
-        if started_at is not None:
-            fields.append("started_at = ?"); values.append(started_at)
-        if completed_at is not None:
-            fields.append("completed_at = ?"); values.append(completed_at)
-        if not fields:
+        # Column names come only from this fixed allowlist -- never from input --
+        # so the generated "col = ?" fragments are safe and every value is bound.
+        _ALLOWED = ("status", "output_json", "started_at", "completed_at")
+        supplied = {"status": status, "output_json": output_json,
+                    "started_at": started_at, "completed_at": completed_at}
+        assignments, values = [], []
+        for col in _ALLOWED:
+            val = supplied[col]
+            if val is None:
+                continue
+            assignments.append(f"{col} = ?")
+            values.append(json.dumps(val) if col == "output_json" else val)
+        if not assignments:
             return
         values.append(id)
         with self.store.cursor() as cur:
-            cur.execute(f"UPDATE run_step_records SET {', '.join(fields)} WHERE id = ?", values)
+            cur.execute(f"UPDATE run_step_records SET {', '.join(assignments)} WHERE id = ?", values)
 
     def reset_step_to_pending(self, run_id: str, step_index: int) -> None:
         with self.store.cursor() as cur:

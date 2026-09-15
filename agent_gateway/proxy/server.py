@@ -40,6 +40,7 @@ from agent_gateway.orchestrator.schema import Playbook
 from agent_gateway.orchestrator.seed import seed_templates
 from agent_gateway.orchestrator.store import OrchestratorStore
 from agent_gateway.proxy.config import GatewayConfig
+from agent_gateway.proxy.logging_config import install_log_redaction
 from agent_gateway.proxy.metrics import MetricsAccumulator
 from agent_gateway.storage.sqlite_store import SqliteStore
 
@@ -72,6 +73,7 @@ class GatewayState:
 
 def create_app(config: GatewayConfig | None = None) -> FastAPI:
     config = config or GatewayConfig()
+    install_log_redaction()  # ensure no credential reaches a log sink
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -103,9 +105,11 @@ def create_app(config: GatewayConfig | None = None) -> FastAPI:
     # EventSource from the frontend fails on preflight.
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:3000"],
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_origins=config.cors_allow_origins,
+        allow_methods=["GET", "POST", "PUT", "OPTIONS"],
+        allow_headers=["Content-Type", "Authorization", "x-api-key", "x-conversation-id"],
+        # allow_credentials stays False: the browser sends API keys as explicit
+        # headers, not cookies, so cookie-credentialed CORS is not needed.
     )
 
     app.include_router(build_router())

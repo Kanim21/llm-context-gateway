@@ -159,3 +159,18 @@ class TestOrchestratorStoreGateDecisions:
             cur.execute("SELECT decision FROM run_gate_decisions WHERE id = ?", ("gd_1",))
             row = cur.fetchone()
         assert row[0] == "approve"
+
+
+def test_update_step_record_treats_values_as_data_not_sql():
+    """Defensive: a SQL-injection-shaped string in a *value* is stored
+    literally and the table still exists (values are bound, not interpolated)."""
+    from agent_gateway.orchestrator.store import OrchestratorStore
+    from agent_gateway.storage.sqlite_store import SqliteStore
+    store = OrchestratorStore(SqliteStore(":memory:"))
+    store.create_run(id="r", playbook_id="p", input_text="x")
+    store.create_step_record(id="rec", run_id="r", step_index=0, step_id="s")
+    nasty = {"text": "'; DROP TABLE run_step_records; --"}
+    store.update_step_record("rec", status="completed", output_json=nasty)
+    rec = store.get_step_record("r", 0)
+    assert rec["output_json"] == nasty
+    assert rec["status"] == "completed"

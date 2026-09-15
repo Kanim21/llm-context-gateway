@@ -69,3 +69,18 @@ class TestOrchestratorWiring:
             assert "tpl_inbound_sales_triage" in ids
             assert "tpl_multi_channel_social_content" in ids
             assert "tpl_support_ticket_escalation" in ids
+
+
+def test_cors_rejects_unlisted_origin():
+    app = create_app(GatewayConfig())
+    with TestClient(app) as client:
+        r = client.get("/v1/playbooks", headers={"Origin": "http://evil.example"})
+        assert r.headers.get("access-control-allow-origin") != "http://evil.example"
+
+
+def test_custom_cors_origin_is_honored():
+    cfg = GatewayConfig(cors_allow_origins=["http://localhost:3000", "https://app.example.com"])
+    app = create_app(cfg)
+    with TestClient(app) as client:
+        r = client.get("/v1/playbooks", headers={"Origin": "https://app.example.com"})
+        assert r.headers.get("access-control-allow-origin") == "https://app.example.com"
