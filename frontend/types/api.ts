@@ -76,6 +76,7 @@ export type RunEvent =
   | { type: "step_completed"; data: { step_index: number; output: { text: string } } }
   | { type: "gate_paused"; data: { step_index: number; step_id: string; label: string; allow_edit: boolean; proposed_output: { text: string } } }
   | { type: "run_completed"; data: Record<string, never> }
+  | { type: "run_rejected"; data: { step_index: number } }
   | { type: "run_failed"; data: { step_index: number; error: string } };
 
 export interface GateDecision {

@@ -117,6 +117,25 @@ def build_router() -> APIRouter:
             raise HTTPException(status_code=404, detail="Playbook not found")
         return playbook
 
+    @router.put("/{playbook_id}")
+    async def update_playbook(playbook_id: str, body: CreatePlaybookRequest, request: Request):
+        gw = request.app.state.gateway
+        if gw.orchestrator_store.get_playbook(playbook_id) is None:
+            raise HTTPException(status_code=404, detail="Playbook not found")
+        try:
+            playbook = compile_canvas(
+                body.canvas_json, playbook_id=playbook_id,
+                name=body.name, description=body.description,
+            )
+        except CompilerError as exc:
+            return JSONResponse(status_code=422, content={"errors": exc.errors})
+        gw.orchestrator_store.upsert_playbook(
+            id=playbook.id, name=playbook.name, description=playbook.description,
+            schema_version=playbook.schema_version, definition_json=playbook.model_dump(),
+            canvas_json=body.canvas_json,
+        )
+        return gw.orchestrator_store.get_playbook(playbook.id)
+
     @router.post("/{playbook_id}/runs")
     async def create_run(playbook_id: str, body: StartRunRequest, request: Request) -> dict:
         gw = request.app.state.gateway

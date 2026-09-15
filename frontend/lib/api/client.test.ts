@@ -40,6 +40,15 @@ describe("api client", () => {
     );
   });
 
+  it("updatePlaybook PUTs to /v1/playbooks/:id", async () => {
+    (fetch as any).mockResolvedValue({ ok: true, json: async () => ({ id: "pb_1" }) });
+    await api.updatePlaybook("pb_1", { name: "P", canvas_json: { nodes: [], edges: [] } });
+    expect(fetch).toHaveBeenCalledWith(
+      "http://localhost:8080/v1/playbooks/pb_1",
+      expect.objectContaining({ method: "PUT" }),
+    );
+  });
+
   it("throws when the response is not ok", async () => {
     (fetch as any).mockResolvedValue({ ok: false, status: 422, json: async () => ({ errors: [] }) });
     await expect(api.getPlaybook("missing")).rejects.toThrow();

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import PlaybookEditorPage from "./page";
 import { api } from "@/lib/api/client";
 import type { PlaybookDetail } from "@/types/api";
@@ -10,7 +10,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/lib/api/client", () => ({
-  api: { getPlaybook: vi.fn(), startRun: vi.fn() },
+  api: { getPlaybook: vi.fn(), startRun: vi.fn(), updatePlaybook: vi.fn() },
 }));
 
 vi.mock("@/components/canvas/PlaybookCanvas", () => ({
@@ -24,8 +24,15 @@ const playbook: PlaybookDetail = {
   created_at: "", updated_at: "", schema_version: 1,
   definition_json: { steps: [{ step_id: "t1", type: "teammate" }] },
   canvas_json: {
-    nodes: [{ id: "t1", type: "teammate", data: { role: "Qualifier" } }],
-    edges: [],
+    nodes: [
+      { id: "start", type: "start", data: {} },
+      { id: "t1", type: "teammate", data: { role: "Qualifier", objective: "O", tier: "speed" } },
+      { id: "end", type: "end", data: {} },
+    ],
+    edges: [
+      { source: "start", target: "t1" },
+      { source: "t1", target: "end" },
+    ],
   },
 };
 
@@ -43,22 +50,32 @@ describe("PlaybookEditorPage", () => {
     vi.mocked(api.getPlaybook).mockResolvedValue(playbook);
   });
 
-  it("says nothing about unsaved teammates until one is added", async () => {
+  it("renders the saved playbook and enables Run (no unsaved-teammate blocking)", async () => {
     render(<PlaybookEditorPage />);
     expect(await screen.findByText("Inbound Sales Triage")).toBeInTheDocument();
-    expect(screen.queryByText(/not saved yet/)).not.toBeInTheDocument();
     expect((screen.getByText("Run") as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.queryByText(/not saved yet/)).not.toBeInTheDocument();
   });
 
-  it("says added teammates are not saved, and blocks Run so it can't skip them", async () => {
+  it("persists an added teammate via updatePlaybook (survives reload / included in runs)", async () => {
+    vi.mocked(api.updatePlaybook).mockImplementation(async (_id, input) => ({
+      ...playbook,
+      canvas_json: input.canvas_json as PlaybookDetail["canvas_json"],
+    }));
+
     render(<PlaybookEditorPage />);
     await screen.findByText("Inbound Sales Triage");
 
     await addATeammate();
 
-    expect(screen.getByText(/not saved yet/)).toBeInTheDocument();
-    expect((screen.getByText("Run") as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(screen.getByText("Run"));
-    expect(api.startRun).not.toHaveBeenCalled();
+    await waitFor(() => expect(api.updatePlaybook).toHaveBeenCalledTimes(1));
+    const savedCanvas = vi.mocked(api.updatePlaybook).mock.calls[0][1]
+      .canvas_json as PlaybookDetail["canvas_json"];
+    const added = savedCanvas.nodes.find((n) => n.type === "teammate" && n.id !== "t1");
+    expect(added).toBeTruthy();
+    // Drawer-collected fields are carried through (tier defaults to "balanced").
+    expect((added!.data as Record<string, unknown>).tier).toBe("balanced");
+    // Chain stays linear: exactly one edge into end.
+    expect(savedCanvas.edges.filter((e) => e.target === "end")).toHaveLength(1);
   });
 });

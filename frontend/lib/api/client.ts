@@ -21,6 +21,9 @@ export const api = {
   createPlaybook: (input: { name: string; description?: string; canvas_json: unknown }) =>
     request<PlaybookDetail>("/v1/playbooks", { method: "POST", body: JSON.stringify(input) }),
 
+  updatePlaybook: (id: string, input: { name: string; description?: string; canvas_json: unknown }) =>
+    request<PlaybookDetail>(`/v1/playbooks/${id}`, { method: "PUT", body: JSON.stringify(input) }),
+
   startRun: (playbookId: string, inputText: string) =>
     request<RunSnapshot>(`/v1/playbooks/${playbookId}/runs`, {
       method: "POST",

@@ -6,7 +6,7 @@ import type { RunEvent, RunSnapshot } from "@/types/api";
 
 const BASE_URL = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:8080";
 const EVENT_TYPES: RunEvent["type"][] = [
-  "step_started", "token", "step_completed", "gate_paused", "run_completed", "run_failed",
+  "step_started", "token", "step_completed", "gate_paused", "run_completed", "run_rejected", "run_failed",
 ];
 
 export function useRunEvents(runId: string) {

@@ -399,3 +399,50 @@ class TestGateStepIndexMismatch:
             snapshot = await client.get(f"/v1/playbooks/runs/{run_id}")
             assert snapshot.json()["status"] == "paused"
             assert snapshot.json()["current_step_index"] == 0
+
+
+class TestUpdatePlaybook:
+    async def test_put_adds_a_teammate_and_persists(self):
+        async with _client() as client:
+            canvas = {
+                "nodes": [
+                    {"id": "start", "type": "start", "data": {}},
+                    {"id": "t1", "type": "teammate", "data": {"role": "R", "objective": "O", "tier": "speed"}},
+                    {"id": "end", "type": "end", "data": {}},
+                ],
+                "edges": [{"source": "start", "target": "t1"}, {"source": "t1", "target": "end"}],
+            }
+            pid = (await client.post("/v1/playbooks", json={"name": "P", "canvas_json": canvas})).json()["id"]
+
+            canvas["nodes"].insert(2, {"id": "t2", "type": "teammate",
+                                       "data": {"role": "R2", "objective": "O2", "tier": "speed"}})
+            canvas["edges"] = [{"source": "start", "target": "t1"},
+                               {"source": "t1", "target": "t2"},
+                               {"source": "t2", "target": "end"}]
+            resp = await client.put(f"/v1/playbooks/{pid}", json={"name": "P", "canvas_json": canvas})
+            assert resp.status_code == 200
+            assert len(resp.json()["definition_json"]["steps"]) == 2
+
+            got = await client.get(f"/v1/playbooks/{pid}")
+            assert len(got.json()["definition_json"]["steps"]) == 2  # persisted, not tab-local
+
+    async def test_put_invalid_canvas_returns_422(self):
+        async with _client() as client:
+            canvas = {
+                "nodes": [
+                    {"id": "start", "type": "start", "data": {}},
+                    {"id": "t1", "type": "teammate", "data": {"role": "R", "objective": "O", "tier": "speed"}},
+                    {"id": "end", "type": "end", "data": {}},
+                ],
+                "edges": [{"source": "start", "target": "t1"}, {"source": "t1", "target": "end"}],
+            }
+            pid = (await client.post("/v1/playbooks", json={"name": "P", "canvas_json": canvas})).json()["id"]
+            bad = {"nodes": [{"id": "t1", "type": "teammate", "data": {"role": "", "objective": "", "tier": "speed"}}], "edges": []}
+            resp = await client.put(f"/v1/playbooks/{pid}", json={"name": "P", "canvas_json": bad})
+            assert resp.status_code == 422
+
+    async def test_put_unknown_playbook_returns_404(self):
+        async with _client() as client:
+            resp = await client.put("/v1/playbooks/pb_missing",
+                                    json={"name": "x", "canvas_json": {"nodes": [], "edges": []}})
+            assert resp.status_code == 404

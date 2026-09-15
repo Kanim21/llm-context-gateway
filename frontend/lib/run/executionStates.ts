@@ -43,6 +43,10 @@ export function executionStateFromEvent(
       const stepId = stepIdAt(event.data.step_index);
       return stepId ? { stepId, state: "failed" } : null;
     }
+    case "run_rejected": {
+      const stepId = stepIdAt(event.data.step_index);
+      return stepId ? { stepId, state: "failed" } : null;
+    }
     default:
       return null;
   }
