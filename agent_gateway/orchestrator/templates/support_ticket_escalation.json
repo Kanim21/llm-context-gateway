@@ -1,0 +1,35 @@
+{
+  "id": "tpl_support_ticket_escalation",
+  "name": "Support Ticket Escalation",
+  "description": "Triage an incoming support ticket and draft an escalation response, with a review step before it's sent.",
+  "canvas_json": {
+    "nodes": [
+      {"id": "start", "type": "start", "data": {}},
+      {"id": "t1", "type": "teammate", "data": {
+        "role": "Ticket Triage Specialist",
+        "objective": "Read the ticket, classify its severity and category, and summarize the customer's core issue in one paragraph.",
+        "tier": "speed",
+        "connected_apps": ["hubspot"],
+        "knowledge": []
+      }},
+      {"id": "t2", "type": "teammate", "data": {
+        "role": "Escalation Responder",
+        "objective": "Draft a clear, empathetic response addressing the triaged issue and proposing next steps or a callback window.",
+        "tier": "balanced",
+        "connected_apps": ["gmail"],
+        "knowledge": ["Standard callback windows"]
+      }},
+      {"id": "g1", "type": "approval_gate", "data": {
+        "label": "Review response before sending",
+        "allow_edit": true
+      }},
+      {"id": "end", "type": "end", "data": {}}
+    ],
+    "edges": [
+      {"source": "start", "target": "t1"},
+      {"source": "t1", "target": "t2"},
+      {"source": "t2", "target": "g1"},
+      {"source": "g1", "target": "end"}
+    ]
+  }
+}

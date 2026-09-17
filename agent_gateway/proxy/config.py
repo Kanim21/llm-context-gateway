@@ -73,6 +73,10 @@ class StorageConfig(BaseModel):
 class GatewayConfig(BaseModel):
     host: str = "127.0.0.1"
     port: int = 8080
+    # Browser origins allowed to call the API (CORS). Default: the Next.js dev
+    # server. Override for real deployments; "*" is intentionally not the
+    # default because the API resolves per-request credentials from headers.
+    cors_allow_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
     upstream: UpstreamConfig = Field(default_factory=UpstreamConfig)
     masking: MaskingConfig = Field(default_factory=MaskingConfig)
     compaction: CompactionConfig = Field(default_factory=CompactionConfig)
@@ -81,6 +85,11 @@ class GatewayConfig(BaseModel):
     lossy_defaults: LossyDefaultsConfig = Field(default_factory=LossyDefaultsConfig)
     storage: StorageConfig = Field(default_factory=StorageConfig)
     providers: ProvidersConfig = Field(default_factory=ProvidersConfig)
+    playbook_tiers: dict[str, str] = Field(
+        default_factory=lambda: {
+            "speed": "gpt-4o-mini", "balanced": "gpt-4o", "brain": "gemini-1.5-pro",
+        }
+    )
 
     @classmethod
     def load(cls, path: str | None = None) -> "GatewayConfig":

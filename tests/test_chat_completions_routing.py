@@ -231,3 +231,23 @@ class TestCredentialFallback:
         assert resp.status_code == 200
         assert captured["authorization"] == "Bearer sk-client-key"
         client.__exit__(None, None, None)
+
+
+class TestUpstreamErrorSanitization:
+    def test_upstream_error_body_is_not_forwarded_to_the_client(self):
+        """A 4xx/5xx from the upstream provider must reach the client as a
+        generic message, never the raw vendor payload (which can carry keys,
+        internal traces, or PII)."""
+        leaky = "upstream boom: Authorization: Bearer sk-LEAKED-123; internal-trace-XYZ"
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(500, text=leaky)
+
+        client = _client_with_mock_transport(_config_with_providers(), handler)
+        resp = client.post("/v1/chat/completions",
+                           json={"model": "gpt-4o", "messages": [{"role": "user", "content": "hi"}]})
+        assert resp.status_code == 500
+        assert resp.json()["detail"] == "Upstream provider error"
+        assert "sk-LEAKED-123" not in resp.text
+        assert "internal-trace-XYZ" not in resp.text
+        client.__exit__(None, None, None)

@@ -1,0 +1,35 @@
+{
+  "id": "tpl_inbound_sales_triage",
+  "name": "Inbound Sales Triage",
+  "description": "Qualify a new inbound lead and route it to the right rep, with a review step before handoff.",
+  "canvas_json": {
+    "nodes": [
+      {"id": "start", "type": "start", "data": {}},
+      {"id": "t1", "type": "teammate", "data": {
+        "role": "Sales Qualifier",
+        "objective": "Read the lead's message and determine fit against our ideal customer profile and typical deal size, then summarize qualification status.",
+        "tier": "balanced",
+        "connected_apps": ["gmail", "hubspot"],
+        "knowledge": ["Ideal customer profile", "Typical deal size ranges"]
+      }},
+      {"id": "g1", "type": "approval_gate", "data": {
+        "label": "Review qualification before routing to a rep",
+        "allow_edit": true
+      }},
+      {"id": "t2", "type": "teammate", "data": {
+        "role": "Routing Coordinator",
+        "objective": "Assign the qualified lead to the correct rep based on territory and current pipeline load, and draft the handoff note.",
+        "tier": "speed",
+        "connected_apps": ["hubspot"],
+        "knowledge": []
+      }},
+      {"id": "end", "type": "end", "data": {}}
+    ],
+    "edges": [
+      {"source": "start", "target": "t1"},
+      {"source": "t1", "target": "g1"},
+      {"source": "g1", "target": "t2"},
+      {"source": "t2", "target": "end"}
+    ]
+  }
+}
