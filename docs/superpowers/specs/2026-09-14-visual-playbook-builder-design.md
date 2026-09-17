@@ -298,7 +298,7 @@ those modules operate on this same Markdown-sectioned text, unchanged.
 - **On an unrecoverable step error** (e.g. the adapter raises after its own
   retry policy): mark the step record `failed` with the error message, mark
   the run `failed`, emit `run_failed`, and stop. Playbooks fail loudly, not
-  silently — consistent with this repo's honesty-over-hype stance.
+  silently.
 
 **`resume_with_decision(run_id, decision, edited_output=None)`:** loads the
 run and the step record at its paused `current_step_index`.

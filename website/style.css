@@ -143,13 +143,6 @@ pre {
 
 code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
-.honesty-box {
-  background: var(--bg-elevated);
-  border: 1px solid var(--warn);
-  border-radius: 10px;
-  padding: 18px 20px;
-}
-.honesty-box h3 { color: var(--warn); margin-top: 0; }
 
 footer.site {
   border-top: 1px solid var(--border);
