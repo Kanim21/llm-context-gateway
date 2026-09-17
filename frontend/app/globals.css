@@ -1,8 +1,9 @@
 @import "tailwindcss";
+@import "@xyflow/react/dist/style.css";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #09090b;
+  --foreground: #f4f4f5;
 }
 
 @theme inline {
@@ -12,15 +13,115 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  height: 100%;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border-radius: 9999px;
+}
+
+/* React Flow dark-theme overrides -- the library ships light-theme defaults. */
+.react-flow__attribution {
+  display: none;
+}
+.react-flow__background {
+  background: #09090b;
+}
+.react-flow__controls {
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+.react-flow__controls-button {
+  background: #18181b;
+  border-bottom: 1px solid #27272a;
+  fill: #e4e4e7;
+}
+.react-flow__controls-button:hover {
+  background: #27272a;
+}
+.react-flow__edge-path {
+  stroke: #52525b;
+  stroke-width: 1.5;
+}
+.react-flow__edge.edge-active .react-flow__edge-path {
+  stroke: #3b82f6;
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+  animation: dash-flow 0.6s linear infinite;
+}
+
+/* Builder edges: gently animated bezier so the chain reads as a live flow. */
+.react-flow__edge.edge-flow .react-flow__edge-path {
+  stroke: #3f3f46;
+  stroke-width: 1.75;
+  stroke-dasharray: 5 5;
+  animation: dash-flow 1.3s linear infinite;
+}
+.react-flow__edge.edge-flow:hover .react-flow__edge-path {
+  stroke: #52525b;
+}
+
+@keyframes dash-flow {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+@keyframes pulse-ring {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(59, 130, 246, 0);
+  }
+}
+
+.animate-pulse-ring {
+  animation: pulse-ring 1.6s ease-in-out infinite;
+}
+
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.2s ease-out;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.15s ease-out;
 }

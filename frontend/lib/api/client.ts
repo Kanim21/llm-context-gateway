@@ -1,6 +1,13 @@
 import type { GateDecision, PlaybookDetail, PlaybookSummary, RunSnapshot } from "@/types/api";
 
-const BASE_URL = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:8080";
+export const BASE_URL = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:8080";
+
+export interface GatewayMetrics {
+  token_reduction_pct: number;
+  cost_reduction_pct: number;
+  call_reduction_pct: number;
+  [key: string]: unknown;
+}
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${BASE_URL}${path}`, {
@@ -38,4 +45,16 @@ export const api = {
       method: "POST",
       body: JSON.stringify(decision),
     }),
+
+  getMetrics: () => request<GatewayMetrics>("/v1/metrics", { method: "GET" }),
+
+  // Not `request()`: a down backend should resolve to `false`, not throw.
+  healthCheck: async (): Promise<boolean> => {
+    try {
+      const response = await fetch(`${BASE_URL}/healthz`);
+      return response.ok;
+    } catch {
+      return false;
+    }
+  },
 };

@@ -12,6 +12,7 @@ import { PlaybookCanvas } from "@/components/canvas/PlaybookCanvas";
 import { RunControlBar } from "@/components/run/RunControlBar";
 import { StepOutputPane } from "@/components/run/StepOutputPane";
 import { GateReviewPanel } from "@/components/run/GateReviewPanel";
+import { TopNav } from "@/components/nav/TopNav";
 import type { PlaybookDetail } from "@/types/api";
 
 export default function RunPage() {
@@ -56,15 +57,27 @@ export default function RunPage() {
     [playbook],
   );
 
-  if (!snapshot) return <p>Loading…</p>;
+  if (!snapshot) {
+    return (
+      <>
+        <TopNav />
+        <main className="flex flex-1 items-center justify-center text-sm text-zinc-500">Loading…</main>
+      </>
+    );
+  }
 
   const gate = deriveGateInfo(snapshot, playbook, latestEvent);
 
   return (
-    <main>
-      <RunControlBar status={snapshot.status} />
-      {graph && <PlaybookCanvas nodes={graph.nodes} edges={graph.edges} />}
-      <StepOutputPane steps={snapshot.steps} />
+    <>
+      <TopNav playbookName={playbook?.name} />
+      <main className="flex min-h-0 flex-1 flex-col">
+        <RunControlBar status={snapshot.status} />
+        <div className="min-h-0 flex-1">
+          {graph && <PlaybookCanvas nodes={graph.nodes} edges={graph.edges} />}
+        </div>
+        <StepOutputPane steps={snapshot.steps} events={events} />
+      </main>
       {gate && (
         <GateReviewPanel
           runId={runId}
@@ -75,6 +88,6 @@ export default function RunPage() {
           onDecided={() => window.location.reload()}
         />
       )}
-    </main>
+    </>
   );
 }
