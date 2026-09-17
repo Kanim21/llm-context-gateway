@@ -117,6 +117,16 @@ def create_app(config: GatewayConfig | None = None) -> FastAPI:
 
     app.include_router(build_router())
 
+    @app.get("/")
+    async def root() -> dict[str, Any]:
+        return {
+            "name": "Agent Gateway",
+            "version": app.version,
+            "docs": "https://kanim21.github.io/llm-context-gateway/",
+            "healthz": "/healthz",
+            "endpoints": ["/healthz", "/v1/chat/completions", "/v1/messages", "/v1/metrics", "/v1/playbooks"],
+        }
+
     @app.get("/healthz")
     async def healthz() -> dict[str, str]:
         return {"status": "ok"}
