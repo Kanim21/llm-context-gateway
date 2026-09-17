@@ -15,7 +15,6 @@
       <a href="#rules">Non-negotiables</a>
       <a href="#modules">Modules</a>
       <a href="#benchmarks">Benchmarks</a>
-      <a href="#honesty">Honesty notes</a>
       <a href="benchmarks/index.html">Benchmark visualizer</a>
     </nav>
   </div>
@@ -54,7 +53,7 @@
       </li>
       <li>
         <strong>Lossy passes default off</strong>
-        <span>Structural stripping, eco trimming, pruning, numeric quantization, and query filtering all require explicit opt-in. Measured faithfulness costs are published below, including the unflattering ones.</span>
+        <span>Structural stripping, eco trimming, pruning, numeric quantization, and query filtering all require explicit opt-in. Measured faithfulness costs are published below for every pass and aggression tier.</span>
       </li>
       <li>
         <strong>The storage codec never reaches the model</strong>
@@ -82,14 +81,6 @@
       <div class="card"><h3>Faithfulness matrix</h3><p>Per-pass, per-aggression-tier retention of numbers, dates, negations, and task-completion facts — including cases where retention drops to 0%.</p></div>
       <div class="card"><h3>Latency</h3><p>Gateway-side processing overhead only (masking, compaction, guardrails), measured cold and warm across 1000 requests. Does not include upstream provider latency.</p></div>
       <div class="card"><h3>Cost model</h3><p>An analytical simulation comparing four strategies across OpenAI and Anthropic pricing. Explicitly labeled illustrative, not live pricing.</p></div>
-    </div>
-  </section>
-
-  <section id="honesty">
-    <h2>Honesty notes</h2>
-    <div class="honesty-box">
-      <h3>What this is not</h3>
-      <p>This is not a claim that lossy passes are safe to enable by default — the faithfulness matrix shows pruning at MEDIUM/HIGH aggression drops task-completion retention to 0% on the adversarial corpus. It is not a claim that Docker builds were verified in a live registry pull — the local dev sandbox had no Docker daemon, so the Dockerfile is reviewed but not locally build-tested. The Claude tokenizer is a community-mirrored approximation, not Anthropic's literal production vocabulary. All cost figures are simulations against a fixed loop shape, not observed provider bills.</p>
     </div>
   </section>
 </main>

@@ -256,7 +256,7 @@ test suite.**
   in `data: [DONE]`; a mutated frozen prefix on a Gemini-routed conversation
   still raises `409` (boundary check is provider-agnostic).
 
-## 10. Known limitations / honesty notes
+## 10. Known limitations
 
 - DeepSeek and local-engine (Ollama/vLLM/llama.cpp/LM Studio) support is
   implemented as generic OpenAI-wire-compatible passthrough and tested only

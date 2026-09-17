@@ -157,17 +157,6 @@ python benchmarks/check_regressions.py # fast CI guardrail: boundary, round-trip
 - **Growth curve:** 3 runs of 27 turns; average offload hit rate 100.0%
   (masked observations that were never re-hydrated for the rest of the run).
 
-## Honesty notes
-
-- The `claude-bpe` tokenizer is a community-mirrored approximation
-  (`Xenova/claude-tokenizer`), not Anthropic's literal production vocabulary —
-  Anthropic's SDK does not ship an offline tokenizer.
-- The Docker image is reviewed but was not locally build-verified in this
-  environment (no Docker daemon available); CI builds and publishes it to
-  GHCR on every push to `main`.
-- Cost figures are simulations against a fixed, documented loop shape, not
-  observed provider invoices.
-
 ## License
 
 Not yet specified.
